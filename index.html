@@ -1,0 +1,2438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Fluxo de Caixa</title>
+<meta name="theme-color" content="#1B2B23" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Fluxo de Caixa" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" href="icon-192.png" />
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #1B2B23; overflow-x: hidden; width: 100%; }
+  body {
+    font-family: 'Inter', sans-serif;
+    color: #F5F1E6;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    min-height: 100dvh;
+  }
+  * { min-width: 0; }
+  .container { max-width: 760px; margin: 0 auto; padding: calc(28px + env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-left, 0px)) 40px max(18px, env(safe-area-inset-right, 0px)); }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.12em; color: #C9A227; font-weight: 600; margin-bottom: 4px; }
+  h1 { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .saldo-geral-box { text-align: right; border-left: 2px solid #C9A227; padding-left: 14px; }
+  .saldo-geral-label { font-size: 11px; color: #8B8578; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+  .saldo-geral-value { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; }
+  .header-btns { display: flex; gap: 8px; align-self: flex-start; }
+  .icon-btn-outline {
+    background: transparent; border: 1px solid #32473a; border-radius: 8px; padding: 8px;
+    cursor: pointer; display: flex; color: #8B8578;
+  }
+  .summary-bar { margin-bottom: 18px; }
+  select.month-select {
+    background: #233C2E; border: 1px solid #3d4f42; color: #F5F1E6; border-radius: 8px;
+    padding: 8px 12px; font-family: 'Inter', sans-serif; font-size: 13px; margin-bottom: 14px; cursor: pointer;
+  }
+  .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .summary-card { background: #233C2E; border: 1px solid #32473a; border-radius: 10px; padding: 12px 10px; display: flex; align-items: center; gap: 8px; }
+  .summary-card-btn { text-align: left; cursor: pointer; width: 100%; font-family: inherit; }
+  .summary-card-btn:active { background: #2a4335; }
+  .summary-label { font-size: 10.5px; color: #8B8578; text-transform: uppercase; letter-spacing: 0.06em; }
+  .summary-value { font-family: 'IBM Plex Mono', monospace; font-size: 14.5px; font-weight: 600; margin-top: 1px; }
+  .settle-link {
+    margin-top: 12px; background: transparent; border: 1px solid #C9A227; color: #C9A227; border-radius: 8px;
+    padding: 8px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .projection-box { margin-top: 14px; background: #1E3327; border: 1px solid #32473a; border-radius: 10px; padding: 12px 14px; }
+  .projection-title { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8B8578; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .projection-row { display: flex; gap: 8px; overflow-x: auto; }
+  .projection-cell { background: #233C2E; border: 1px solid #32473a; border-radius: 8px; padding: 8px 12px; min-width: 78px; text-align: left; cursor: pointer; flex: 0 0 auto; color: inherit; font-family: inherit; }
+  .projection-month { font-size: 10.5px; color: #8B8578; text-transform: uppercase; margin-bottom: 3px; }
+  .projection-value { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: #8FAEDB; }
+  .ledger-wrap { background: #20342A; border: 1px solid #32473a; border-radius: 12px; overflow: hidden; }
+  .ledger-header-row { display: flex; padding: 10px 14px; border-bottom: 1px solid #32473a; background: #1E3327; }
+  .th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #8B8578; font-weight: 600; }
+  .ledger-row { display: flex; padding: 12px 14px; border-bottom: 1px solid #2a3d32; align-items: center; }
+  .ledger-row:hover { background: rgba(245,241,230,0.04); }
+  .td { font-size: 13.5px; padding-right: 8px; }
+  .badge-row { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: #A8A296; background: #1E3327; border: 1px solid #32473a; border-radius: 5px; padding: 2px 6px; }
+  .empty-state { padding: 36px 20px; text-align: center; color: #8B8578; font-size: 13.5px; line-height: 1.5; }
+  .saving-note { font-size: 11px; color: #8B8578; margin-top: 8px; text-align: right; }
+  .icon-btn { background: transparent; border: none; cursor: pointer; padding: 4px; display: flex; border-radius: 6px; color: #8B8578; }
+  .fab {
+    position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); right: calc(24px + env(safe-area-inset-right, 0px)); width: 56px; height: 56px; border-radius: 50%;
+    background: #C9A227; border: none; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.35); font-size: 26px; color: #1B2B23; z-index: 40;
+  }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10,16,13,0.6); display: flex; align-items: flex-end; justify-content: center; z-index: 50; }
+  .modal, .modal-large {
+    background: #233C2E; border-top: 1px solid #3d4f42; border-radius: 16px 16px 0 0; width: 100%;
+    max-height: min(90vh, 90dvh); overflow-y: auto; padding: 20px 20px calc(28px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px;
+  }
+  .modal { max-width: 480px; }
+  .modal-large { max-width: 560px; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; margin: 0; }
+  .type-toggle { display: flex; gap: 8px; background: #1E3327; padding: 4px; border-radius: 10px; }
+  .type-btn { flex: 1; border: none; border-radius: 7px; padding: 9px 0; font-size: 13.5px; font-weight: 600; cursor: pointer; background: transparent; color: #8B8578; }
+  .type-btn.active-despesa { background: #A63D40; color: #F5F1E6; }
+  .type-btn.active-receita { background: #2E7D5B; color: #F5F1E6; }
+  .type-btn.active-neutral { background: #3d4f42; color: #F5F1E6; }
+  label.field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A8A296; }
+  input, select, textarea {
+    background: #1E3327; border: 1px solid #3d4f42; border-radius: 8px; padding: 10px 12px;
+    color: #F5F1E6; font-size: 16px; font-family: 'Inter', sans-serif; width: 100%;
+  }
+  input[type=number] { font-family: 'IBM Plex Mono', monospace; }
+  .row2 { display: flex; gap: 12px; }
+  .row2 > * { flex: 1; }
+  .submit-btn { background: #C9A227; color: #1B2B23; border: none; border-radius: 9px; padding: 13px 0; font-size: 14.5px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+  .submit-btn:disabled { opacity: 0.5; cursor: default; }
+  .back-btn { background: transparent; border: 1px solid #3d4f42; color: #A8A296; border-radius: 9px; padding: 13px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #F5F1E6; cursor: pointer; }
+  .hint { font-size: 11px; color: #8B8578; }
+  .divider { height: 1px; background: #32473a; margin: 2px 0; }
+  .balance-hint { font-size: 12.5px; color: #A8A296; background: #1E3327; border: 1px solid #32473a; border-radius: 8px; padding: 9px 12px; }
+  .error-text { font-size: 12.5px; color: #D97D80; background: #2A1F20; border: 1px solid #4a2f30; border-radius: 8px; padding: 9px 12px; }
+  .match-box { font-size: 12.5px; color: #7FBE9E; background: #1E3327; border: 1px solid #2E7D5B; border-radius: 8px; padding: 9px 12px; display: flex; align-items: center; }
+  .category-row-btn { display: block; width: 100%; padding: 10px 4px; border-radius: 6px; cursor: pointer; -webkit-tap-highlight-color: rgba(201,162,39,0.25); touch-action: manipulation; user-select: none; }
+  .category-row-btn:active { background: rgba(245,241,230,0.06); }
+  .mismatch-box { font-size: 12.5px; color: #F0C36D; background: #2A2416; border: 1px solid #6b5a1f; border-radius: 8px; padding: 9px 12px; line-height: 1.5; }
+  .ledger-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-bottom: 1px solid #32473a; background: #1E3327; gap: 10px; flex-wrap: wrap; }
+  .search-row { padding: 10px 14px; border-bottom: 1px solid #32473a; }
+  .search-row input { font-size: 16px; }
+  .select-toggle-btn { background: transparent; border: 1px solid #3d4f42; color: #A8A296; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .select-toggle-btn.danger { border-color: #A63D40; color: #D97D80; }
+  .import-list { display: flex; flex-direction: column; gap: 8px; max-height: 42vh; overflow-y: auto; padding-right: 4px; }
+  .import-row { background: #1E3327; border: 1px solid #32473a; border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .import-row-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .import-desc-input { flex: 1 1 0 !important; width: 0 !important; font-size: 13px !important; font-weight: 500; padding: 6px 8px !important; }
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-nav-btn { background: #1E3327; border: 1px solid #3d4f42; border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: #F5F1E6; cursor: pointer; flex: 0 0 auto; }
+  .cal-month-label { font-size: 13.5px; font-weight: 600; text-transform: capitalize; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .cal-weekday { text-align: center; font-size: 10px; color: #8B8578; padding-bottom: 3px; }
+  .cal-day { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #1E3327; border: 1px solid #2a3d32; color: #F5F1E6; font-size: 12.5px; cursor: pointer; min-width: 0; padding: 0; }
+  .cal-day.cal-selected { background: #C9A227; border-color: #C9A227; color: #1B2B23; font-weight: 700; }
+  .cal-day-empty { visibility: hidden; }
+  .cal-selected-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .cal-selected-row { display: flex; align-items: center; gap: 8px; }
+  .cal-selected-date { flex: 0 0 62px; font-size: 12px; color: #A8A296; font-family: 'IBM Plex Mono', monospace; }
+  .cal-selected-amount { flex: 1 1 0 !important; min-width: 0; width: 0 !important; }
+  .import-amount { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #D97D80; flex-shrink: 0; }
+  .classify-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .classify-btn { border: 1px solid #32473a; border-radius: 6px; padding: 5px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer; background: transparent; color: #8B8578; }
+  .classify-btn.active { background: #3d4f42; color: #F5F1E6; }
+  .split-input { width: 64px; background: #233C2E !important; border: 1px solid #3d4f42; border-radius: 6px; padding: 5px 6px !important; color: #F5F1E6; font-size: 16px; }
+  .import-footer { display: flex; gap: 10px; margin-top: 4px; }
+  .backup-row { display: flex; gap: 10px; }
+  .backup-btn { flex: 1; background: #1E3327; border: 1px solid #3d4f42; color: #F5F1E6; border-radius: 9px; padding: 11px 0; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #3d4f42; border-radius: 4px; }
+  @media (max-width: 640px) { .hide-sm { display: none !important; } }
+
+  /* Tela de login */
+  .login-wrap { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .login-card { background: #233C2E; border: 1px solid #32473a; border-radius: 14px; padding: 32px 26px; width: 100%; max-width: 360px; }
+  .login-title { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; margin: 0 0 4px; text-align: center; }
+  .login-sub { font-size: 12.5px; color: #8B8578; text-align: center; margin-bottom: 22px; }
+  .user-bar { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #8B8578; }
+  .logout-link { background: none; border: none; color: #C9A227; font-size: 11.5px; cursor: pointer; text-decoration: underline; padding: 0; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #7FBE9E; display: inline-block; flex-shrink: 0; }
+  .sync-dot.syncing { background: #C9A227; }
+  .reminder-banner { background: #1E3327; border: 1px solid #8FAEDB; color: #8FAEDB; border-radius: 8px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .budget-alert-banner { background: #2A1F20; border: 1px solid #A63D40; color: #F0A8AA; border-radius: 8px; padding: 9px 12px; font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ---------- Firebase ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyDbL7l41Ff-TiYbeKJVFyA66hk5mP7BeZc",
+  authDomain: "fluxo-caixa-dbc59.firebaseapp.com",
+  projectId: "fluxo-caixa-dbc59",
+  storageBucket: "fluxo-caixa-dbc59.firebasestorage.app",
+  messagingSenderId: "780323890144",
+  appId: "1:780323890144:web:9466ab247618d7ca9ac185",
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try {
+  db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+} catch (e) {}
+
+/* ---------- Leitura de PDF (extração de texto no navegador) ---------- */
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+async function extractTextFromPdf(arrayBuffer) {
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const allLines = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const items = content.items.filter((it) => it.str !== undefined);
+    const hasEOLInfo = items.some((it) => typeof it.hasEOL === "boolean");
+
+    if (hasEOLInfo) {
+      // Segue as quebras de linha reais detectadas pelo próprio pdf.js — mais fiel ao
+      // layout original do que agrupar por posição, especialmente em documentos com colunas.
+      let curLine = "";
+      for (const it of items) {
+        curLine += it.str;
+        if (it.hasEOL) {
+          if (curLine.trim()) allLines.push(curLine.trim());
+          curLine = "";
+        } else if (it.str && !/\s$/.test(it.str)) {
+          curLine += " ";
+        }
+      }
+      if (curLine.trim()) allLines.push(curLine.trim());
+    } else {
+      // Fallback: agrupa por posição Y aproximada quando o documento não informa hasEOL.
+      const posItems = items.map((it) => ({ str: it.str, x: it.transform[4], y: Math.round(it.transform[5]) }));
+      posItems.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+      let curY = null, curLine = [];
+      for (const it of posItems) {
+        if (curY === null || Math.abs(it.y - curY) > 3) {
+          if (curLine.length) allLines.push(curLine.map((c) => c.str).join(" ").trim());
+          curLine = [it];
+          curY = it.y;
+        } else {
+          curLine.push(it);
+        }
+      }
+      if (curLine.length) allLines.push(curLine.map((c) => c.str).join(" ").trim());
+    }
+    allLines.push("");
+  }
+  return allLines.join("\n");
+}
+
+// Tenta achar o valor total declarado na própria fatura, pra conferir contra a soma dos
+// lançamentos importados (procura na linha do rótulo e nas 2 seguintes, pois em muitos
+// layouts o valor fica numa caixa separada, em outra linha).
+function detectInvoiceTotal(raw) {
+  const lines = (raw || "").split(/\r?\n/);
+  const keywordRe = /total\s+desta\s+fatura|o\s+total\s+da\s+sua\s+fatura|valor\s+total\s+da\s+fatura|total\s+a\s+pagar/i;
+  for (let i = 0; i < lines.length; i++) {
+    if (keywordRe.test(lines[i])) {
+      for (let j = i; j <= Math.min(i + 2, lines.length - 1); j++) {
+        const m = lines[j].match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
+        if (m) return parseAmountBR(m[1]);
+      }
+    }
+  }
+  return null;
+}
+
+const TX_COLLECTION = () => db.collection("households").doc("main").collection("transactions");
+const SETTINGS_DOC = () => db.collection("households").doc("main").collection("meta").doc("settings");
+const LOANS_COLLECTION = () => db.collection("households").doc("main").collection("loans");
+const LOAN_ENTRIES_COLLECTION = () => db.collection("households").doc("main").collection("loanEntries");
+
+let authUser = null;
+let unsubTx = null;
+let unsubSettings = null;
+let unsubLoans = null;
+let unsubLoanEntries = null;
+let dataReady = false;
+let syncing = false;
+
+/* ---------- Estado (agora é apenas um cache local dos dados do Firestore) ---------- */
+let state = { transactions: [], loans: [], loanEntries: [], settings: { closingDay: null, marginDays: 5, meuNome: "", esposaNome: "", customCategoriesDespesa: [], customCategoriesReceita: [] } };
+
+function attachListeners() {
+  dataReady = false;
+  unsubTx = TX_COLLECTION().onSnapshot(
+    (snap) => {
+      state.transactions = snap.docs.map((d) => d.data());
+      dataReady = true;
+      render();
+    },
+    (err) => console.error("Erro ao sincronizar lançamentos:", err)
+  );
+  unsubSettings = SETTINGS_DOC().onSnapshot(
+    (doc) => {
+      if (doc.exists) state.settings = doc.data();
+      render();
+    },
+    (err) => console.error("Erro ao sincronizar configurações:", err)
+  );
+  unsubLoans = LOANS_COLLECTION().onSnapshot(
+    (snap) => {
+      state.loans = snap.docs.map((d) => d.data());
+      render();
+    },
+    (err) => console.error("Erro ao sincronizar empréstimos:", err)
+  );
+  unsubLoanEntries = LOAN_ENTRIES_COLLECTION().onSnapshot(
+    (snap) => {
+      state.loanEntries = snap.docs.map((d) => d.data());
+      render();
+    },
+    (err) => console.error("Erro ao sincronizar lançamentos de empréstimo:", err)
+  );
+}
+function detachListeners() {
+  if (unsubTx) unsubTx();
+  if (unsubSettings) unsubSettings();
+  if (unsubLoans) unsubLoans();
+  if (unsubLoanEntries) unsubLoanEntries();
+  unsubTx = null; unsubSettings = null; unsubLoans = null; unsubLoanEntries = null;
+}
+
+auth.onAuthStateChanged((user) => {
+  authUser = user;
+  if (user) {
+    attachListeners();
+  } else {
+    detachListeners();
+    state = { transactions: [], loans: [], loanEntries: [], settings: { closingDay: null, marginDays: 5, meuNome: "", esposaNome: "", customCategoriesDespesa: [], customCategoriesReceita: [] } };
+  }
+  render();
+});
+
+async function doLogin(email, password) {
+  loginError = "";
+  loginLoading = true;
+  render();
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch (e) {
+    loginError = translateAuthError(e.code);
+  }
+  loginLoading = false;
+  render();
+}
+function doLogout() {
+  auth.signOut();
+}
+function translateAuthError(code) {
+  if (code === "auth/wrong-password" || code === "auth/invalid-credential") return "E-mail ou senha incorretos.";
+  if (code === "auth/user-not-found") return "Não encontrei esse e-mail cadastrado.";
+  if (code === "auth/invalid-email") return "E-mail inválido.";
+  if (code === "auth/too-many-requests") return "Muitas tentativas. Aguarde um pouco e tente de novo.";
+  return "Não consegui entrar. Verifique os dados e tente novamente.";
+}
+let loginEmail = "", loginPassword = "", loginError = "", loginLoading = false;
+
+async function withSync(fn) {
+  syncing = true;
+  render();
+  try {
+    await fn();
+  } catch (e) {
+    console.error(e);
+    alert("Não consegui salvar na nuvem agora. Verifique sua internet e tente de novo.");
+  }
+  syncing = false;
+  render();
+}
+
+/* ---------- Helpers ---------- */
+const CATEGORIES_RECEITA = ["Salário", "Freelance", "Investimentos", "Reembolso", "Outros"];
+const CATEGORIES_DESPESA = ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Contas", "Outros"];
+function categoriesFor(type) {
+  const base = type === "receita" ? CATEGORIES_RECEITA : CATEGORIES_DESPESA;
+  const custom = type === "receita" ? state.settings.customCategoriesReceita : state.settings.customCategoriesDespesa;
+  const extra = (custom || []).filter((c) => !base.includes(c));
+  return [...base, ...extra];
+}
+const CATEGORIA_ACERTO = "Acerto com esposa";
+const MONTHS_PT = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const WEEKDAYS_PT = ["D", "S", "T", "Q", "Q", "S", "S"];
+// Monta a grade de um mês pro calendário de seleção múltipla: null = dia de preenchimento (fora do mês)
+function getCalendarGrid(yearMonth) {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const firstWeekday = new Date(y, m - 1, 1).getDay();
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  return cells;
+}
+
+function formatBRL(value) {
+  return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+function todayISO() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+function addMonthsISO(dateStr, n) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1 + n, d);
+  const yy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+function faturaAnchorDate(dateStr, closingDay, marginDays) {
+  if (!closingDay) return dateStr;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const purchaseDate = new Date(y, m - 1, d);
+  const closingDate = new Date(y, m - 1, closingDay);
+  const cutoff = new Date(closingDate);
+  cutoff.setDate(cutoff.getDate() - (marginDays || 0));
+  return purchaseDate > cutoff ? addMonthsISO(dateStr, 1) : dateStr;
+}
+function parseAmountBR(val) {
+  if (val === undefined || val === null) return null;
+  if (typeof val === "number") return val;
+  let s = String(val).trim();
+  if (!s) return null;
+  s = s.replace(/r\$/i, "").trim();
+  const negative = /^-/.test(s) || /^\(.*\)$/.test(s);
+  s = s.replace(/[()]/g, "").replace(/^-/, "").trim();
+  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (s.includes(",")) s = s.replace(",", ".");
+  const num = parseFloat(s);
+  if (isNaN(num)) return null;
+  return negative ? -num : num;
+}
+function parseDateFlexible(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = "20" + y;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return null;
+}
+// Parser simples de CSV/texto colado (sem depender de bibliotecas externas)
+function splitCSVLine(line) {
+  const delim = line.includes(";") && !line.includes(",") ? ";" : ",";
+  const parts = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQuotes = !inQuotes; continue; }
+    if (c === delim && !inQuotes) { parts.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  parts.push(cur);
+  return parts.map((p) => p.trim());
+}
+function parseGenericFaturaText(raw, refMonth) {
+  const lines = (raw || "").trim().split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  let startIdx = 0;
+  const firstCols = splitCSVLine(lines[0]).map((c) => c.toLowerCase());
+  const looksLikeHeader = firstCols.some((c) => /data|date|descri|histor|valor|amount/.test(c));
+  let dateIdx = 0, descIdx = 1, amountIdx = 2;
+  if (looksLikeHeader) {
+    startIdx = 1;
+    const dIdx = firstCols.findIndex((c) => /data|date/.test(c));
+    const dsIdx = firstCols.findIndex((c) => /descri|histor|lan[çc]amento|estabelecimento|title/.test(c));
+    const aIdx = firstCols.findIndex((c) => /valor|amount|value/.test(c));
+    if (dIdx >= 0) dateIdx = dIdx;
+    if (dsIdx >= 0) descIdx = dsIdx;
+    if (aIdx >= 0) amountIdx = aIdx;
+  }
+  const rows = [];
+  for (let i = startIdx; i < lines.length; i++) {
+    let cols = splitCSVLine(lines[i]);
+    // Se o delimitador for vírgula, "234,50" pode ter sido quebrado em duas colunas ("234","50").
+    // Remonta o valor decimal quando isso acontece.
+    if (cols.length >= 2) {
+      const last = cols[cols.length - 1];
+      const prev = cols[cols.length - 2];
+      if (/^\d{2}$/.test(last) && /^-?\d{1,3}(\.\d{3})*$/.test(prev)) {
+        cols = cols.slice(0, -2).concat(`${prev},${last}`);
+      }
+    }
+    let raw_date, raw_desc, raw_amount;
+    if (cols.length >= 3) {
+      raw_date = cols[dateIdx]; raw_desc = cols[descIdx]; raw_amount = cols[amountIdx];
+    } else if (cols.length === 2) {
+      raw_date = ""; raw_desc = cols[0]; raw_amount = cols[1];
+    } else continue;
+    const amount = parseAmountBR(raw_amount);
+    const parsedISO = parseDateFlexible(raw_date);
+    const day = parsedISO ? parsedISO.slice(8, 10) : "01";
+    const desc = (raw_desc || "").toString().trim();
+    if (amount === null || amount === 0 || !desc) continue;
+    rows.push({
+      id: `imp-${Date.now()}-${i}`,
+      parsedDate: `${refMonth}-${day}`,
+      description: desc,
+      amount,
+      holder: null,
+      include: amount > 0,
+      classification: "so_eu",
+      splitEu: "50",
+    });
+  }
+  return rows;
+}
+
+// Reconhece faturas com seções por titular (ex.: Santander, cartões adicionais):
+// "NOME TITULAR - XXXX XXXX XXXX 0000" seguido de blocos "Despesas"/"Parcelamentos"
+// com linhas "DD/MM Descrição [Parcela DD/DD] Valor".
+function normalizeName(s) {
+  return (s || "")
+    .toString()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z\s]/g, "")
+    .trim();
+}
+// Compara nomes tolerando abreviações no meio (ex.: "LEONARDO C SANTOS" vs "LEONARDO COSTA DOS SANTOS"):
+// exige que o primeiro e o último nome batam, já que o do meio costuma vir abreviado nas faturas.
+function namesMatch(configured, holder) {
+  const a = normalizeName(configured).split(/\s+/).filter(Boolean);
+  const b = normalizeName(holder).split(/\s+/).filter(Boolean);
+  if (!a.length || !b.length) return false;
+  if (a.length === 1 || b.length === 1) {
+    const as = a.join(""), bs = b.join("");
+    return as.includes(bs) || bs.includes(as);
+  }
+  return a[0] === b[0] && a[a.length - 1] === b[b.length - 1];
+}
+function parseHolderTxLine(line, isParcelamento) {
+  let s = line.trim();
+  const valueMatch = s.match(/(-?\d{1,3}(?:\.\d{3})*,\d{2})\s*$/);
+  if (!valueMatch) return null;
+  const amountStr = valueMatch[1];
+  s = s.slice(0, valueMatch.index).trim();
+  if (!s) return null;
+
+  if (isParcelamento) {
+    const pm = s.match(/\d{1,2}\/\d{1,2}\s*$/);
+    if (pm) s = s.slice(0, pm.index).trim();
+  }
+  if (!s) return null;
+
+  let day = null;
+  const dm = s.match(/^(\d{1,2})\/(\d{1,2})\s+(.*)$/);
+  let desc;
+  if (dm) {
+    day = dm[1].padStart(2, "0");
+    desc = dm[3].trim();
+  } else {
+    desc = s.trim();
+  }
+  // remove marcador solto de 1 dígito no início (ícone de tipo de compra mal copiado do PDF)
+  desc = desc.replace(/^[0-9]\s+(?=[A-ZÀ-Ü0-9*])/, "").trim();
+  if (!desc || /^valor total$/i.test(desc)) return null;
+
+  // Sinal de linhas mescladas indevidamente (colunas diferentes juntadas numa só):
+  // outro valor monetário embutido no meio da descrição, ou texto longo demais pra um
+  // item de fatura real.
+  if (/\d{1,3}(?:\.\d{3})*,\d{2}/.test(desc)) return null;
+  if (desc.length > 70) return null;
+
+  const amount = parseAmountBR(amountStr);
+  if (amount === null || amount <= 0) return null;
+  return { day, desc, amount };
+}
+function parseHolderFaturaText(raw, refMonth) {
+  const rawLines = (raw || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const cardMaskHeaderRe = /^@?\s*([A-ZÀ-Ü][A-ZÀ-Ü\s.]{2,40}?)\s*-\s*[\dX]{3,4}\s*XXXX\s*XXXX\s*[\dX]{3,4}/i;
+  const bareNameRe = /^[A-ZÀ-Ü][A-ZÀ-Ü.]*(?:\s[A-ZÀ-Ü.]+){1,5}$/;
+  const txLineRe = /^\d{1,2}\/\d{1,2}\s+.+\d{1,3}(?:\.\d{3})*,\d{2}\s*$/;
+  const sectionRe = /^(Pagamento e Demais Cr[ée]ditos|Parcelamentos|Despesas)\s*$/i;
+  const colHeaderRe = /^(Compra\s+Data\s+Descri|DATA\s+ESTABELECIMENTO|DATA\s+VALOR)/i;
+  const totalOrSummaryRe = /^VALOR TOTAL/i;
+  const summaryKeywordRe = /\b(total|lançamentos|limite|encargo|encargos|juros|iof|cet|financiado|solicitado|dispon[íi]vel|utilizado)\b/i;
+
+  let currentHolder = null;
+  let currentSection = null;
+  let foundAnyHolder = false;
+  const rows = [];
+  let idx = 0;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+
+    const hm = line.match(cardMaskHeaderRe);
+    if (hm) {
+      currentHolder = hm[1].trim();
+      currentSection = null;
+      foundAnyHolder = true;
+      continue;
+    }
+
+    // Faturas sem máscara de cartão explícita (ex.: Itaú): nome do titular isolado numa linha,
+    // seguido (após um eventual cabeçalho de coluna) por uma linha que parece um lançamento real.
+    if (bareNameRe.test(line) && line.replace(/[.\s]/g, "").length >= 6) {
+      let lookaheadOk = false;
+      for (let j = i + 1; j <= Math.min(i + 2, rawLines.length - 1); j++) {
+        if (colHeaderRe.test(rawLines[j])) continue;
+        lookaheadOk = txLineRe.test(rawLines[j]);
+        break;
+      }
+      if (lookaheadOk) {
+        currentHolder = line;
+        currentSection = "despesas";
+        foundAnyHolder = true;
+        continue;
+      }
+    }
+
+    const sm = line.match(sectionRe);
+    if (sm) {
+      currentSection = sm[1].toLowerCase();
+      continue;
+    }
+    if (colHeaderRe.test(line) || totalOrSummaryRe.test(line)) continue;
+    if (!/^\d{1,2}\/\d{1,2}\s/.test(line) && summaryKeywordRe.test(line)) continue;
+    if (!currentSection) continue;
+    if (currentSection.startsWith("pagamento")) continue; // pagamentos/créditos, não são gasto
+    if (!currentSection.startsWith("despesa") && !currentSection.startsWith("parcelamento")) continue;
+
+    const parsed = parseHolderTxLine(line, currentSection.startsWith("parcelamento"));
+    if (!parsed) continue;
+    const day = parsed.day || "01";
+    idx++;
+    rows.push({
+      id: `imp-${Date.now()}-${idx}`,
+      parsedDate: `${refMonth}-${day}`,
+      description: parsed.desc,
+      amount: parsed.amount,
+      holder: currentHolder,
+      include: true,
+      classification: "so_eu",
+      splitEu: "50",
+    });
+  }
+
+  return foundAnyHolder ? rows : null;
+}
+function parseFaturaText(raw, refMonth, meuNome, esposaNome) {
+  const holderRows = parseHolderFaturaText(raw, refMonth);
+  if (holderRows && holderRows.length) {
+    return holderRows.map((r) => {
+      let classification = "so_eu";
+      if (esposaNome && r.holder && namesMatch(esposaNome, r.holder)) {
+        classification = "so_esposa";
+      } else if (meuNome && r.holder && namesMatch(meuNome, r.holder)) {
+        classification = "so_eu";
+      }
+      return { ...r, classification };
+    });
+  }
+  return parseGenericFaturaText(raw, refMonth);
+}
+function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+
+/* ---------- Empréstimos (ex.: dinheiro emprestado, abatido aos poucos por serviço, com fechamento + acerto manual) ---------- */
+function computeLoanEntries(loanId, status) {
+  return state.loanEntries
+    .filter((e) => e.loanId === loanId && (!status || e.status === status))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+function computeLoanPendingTotal(loanId) {
+  return state.loanEntries.filter((e) => e.loanId === loanId && e.status === "pending").reduce((s, e) => s + e.amount, 0);
+}
+// Agrupa as corridas já fechadas por fechamento (mesmo closingId = mesma parcela resolvida).
+// Cada fechamento guarda o próprio delta (sobra/excesso), calculado na hora do fechamento.
+function computeLoanClosings(loanId) {
+  const closed = state.loanEntries.filter((e) => e.loanId === loanId && e.status === "closed");
+  const groups = {};
+  for (const e of closed) {
+    if (!groups[e.closingId]) groups[e.closingId] = { closingId: e.closingId, date: e.closingDate, delta: e.closingDelta, entries: [] };
+    groups[e.closingId].entries.push(e);
+  }
+  return Object.values(groups).sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+// Nº de parcelas já fechadas — derivado do histórico, nunca um contador guardado à parte.
+function computeLoanInstallmentsResolved(loanId) {
+  return computeLoanClosings(loanId).length;
+}
+// Saldo devedor do empréstimo: cai uma parcela inteira por fechamento (não o valor das corridas).
+function computeLoanBalance(loanId) {
+  const loan = state.loans.find((l) => l.id === loanId);
+  if (!loan) return 0;
+  return loan.initialAmount - computeLoanInstallmentsResolved(loanId) * loan.installmentAmount;
+}
+// Saldo do ACERTO: soma de tudo que já foi fechado (sobra/excesso) mas ainda NÃO foi lançado no
+// fluxo de caixa, menos o que já foi de fato acertado (lançamentos de acerto já registrados).
+// Positivo = a seu favor (ele ainda te deve, vira entrada quando acertar).
+// Negativo = contra você (você passou a dever, vira saída quando acertar).
+function computeLoanSaldoAcerto(loanId) {
+  const loan = state.loans.find((l) => l.id === loanId);
+  if (!loan) return 0;
+  const fromClosings = computeLoanClosings(loanId).reduce((s, c) => s + c.delta, 0);
+  const settlementTxs = state.transactions.filter((t) => t.category === `Empréstimo: ${loan.name}` && !t.isSettlement);
+  const fromSettlements = settlementTxs.reduce((s, t) => s + (t.type === "receita" ? -t.amount : t.amount), 0);
+  return fromClosings + fromSettlements;
+}
+// Quanto já deveria ter sido fechado até hoje, seguindo o cronograma (parcela x nº de parcelas).
+function computeLoanScheduleInfo(loan) {
+  if (!loan.installmentAmount || !loan.totalInstallments) return null;
+  const start = new Date(loan.startDate + "T00:00:00");
+  const today = new Date();
+  let months = (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth()) + 1;
+  months = Math.max(0, Math.min(loan.totalInstallments, months));
+  const resolved = computeLoanInstallmentsResolved(loan.id);
+  return { months, resolved, aoDia: resolved >= months };
+}
+// Calcula o resultado de um fechamento SEM aplicar nada ainda — usado pra mostrar a prévia na tela.
+function computeClosingPreview(loan, ridesTotal) {
+  const diff = loan.installmentAmount - ridesTotal; // positivo = faltou (soma no saldo a seu favor); negativo = passou (contra você)
+  return { delta: diff, isZero: Math.abs(diff) < 0.005 };
+}
+
+
+/* ---------- Estado de UI (não persistido) ---------- */
+let ui = {
+  monthFilter: todayISO().slice(0, 7),
+  searchQuery: "",
+  showCategoryBreakdown: false,
+  showTrend: false,
+  selectedCategory: null,
+  newCategoryInput: "",
+  newCategoryType: "despesa",
+  selectMode: false,
+  editingId: null,
+  editingSettleId: null,
+  selectedIds: [],
+  loansStep: "list", // 'list' | 'loanForm' | 'detail' | 'entryForm'
+  selectedLoanId: null,
+  selectedPendingIds: [],
+  loanForm: null,
+  editingLoanId: null,
+  loanEntryForm: null,
+  editingLoanEntryId: null,
+  loanSettleForm: null,
+  modal: null, // 'form' | 'settle' | 'settings' | 'import'
+  importStep: "input",
+  importRawText: "",
+  importReferenceMonth: todayISO().slice(0, 7),
+  importCategory: CATEGORIES_DESPESA[0],
+  importMeuNome: "",
+  importEsposaNome: "",
+  importRows: [],
+  importDetectedTotal: null,
+  importError: "",
+  importLoading: false,
+  form: null,
+  settle: null,
+  settingsForm: null,
+};
+
+function freshForm() {
+  return {
+    date: todayISO(), description: "", category: CATEGORIES_DESPESA[0], type: "despesa",
+    amount: "", paymentMethod: "dinheiro", installments: "1", shared: false, paidBy: "eu", splitEu: "50",
+  };
+}
+function freshSettle() {
+  return { date: todayISO(), description: "", amount: "", direction: "paguei" };
+}
+
+/* ---------- Ações ---------- */
+function addTransaction() {
+  const f = ui.form;
+  const amountNum = parseFloat(String(f.amount).replace(",", "."));
+  if (!f.description.trim() || isNaN(amountNum) || amountNum <= 0) return;
+  const isCartao = f.type === "despesa" && f.paymentMethod === "cartao";
+  const shared = f.type === "despesa" && f.shared;
+  const splitEu = shared ? Math.max(0, Math.min(100, parseFloat(f.splitEu) || 0)) : null;
+
+  if (ui.editingId) {
+    // Edição: atualiza só este lançamento (não mexe em outras parcelas do mesmo grupo).
+    const updated = {
+      date: f.date,
+      description: f.description.trim(),
+      category: f.category,
+      type: f.type,
+      amount: amountNum,
+      paymentMethod: f.type === "despesa" ? f.paymentMethod : null,
+      shared, paidBy: shared ? f.paidBy : null, splitEu: shared ? splitEu : null,
+    };
+    const id = ui.editingId;
+    withSync(async () => {
+      await TX_COLLECTION().doc(id).update(updated);
+    });
+    ui.modal = null;
+    ui.editingId = null;
+    render();
+    return;
+  }
+
+  const totalParcelas = isCartao ? Math.max(1, Math.min(24, parseInt(f.installments, 10) || 1)) : 1;
+  const anchorDate = isCartao ? faturaAnchorDate(f.date, state.settings.closingDay, state.settings.marginDays) : f.date;
+  const groupId = uid();
+  const entries = [];
+  for (let i = 0; i < totalParcelas; i++) {
+    entries.push({
+      id: `${groupId}-${i}`,
+      date: addMonthsISO(anchorDate, i),
+      description: totalParcelas > 1 ? `${f.description.trim()} (${i + 1}/${totalParcelas})` : f.description.trim(),
+      category: f.category, type: f.type, amount: amountNum / totalParcelas,
+      paymentMethod: f.type === "despesa" ? f.paymentMethod : null,
+      shared, paidBy: shared ? f.paidBy : null, splitEu: shared ? splitEu : null,
+    });
+  }
+  withSync(async () => {
+    const batch = db.batch();
+    entries.forEach((e) => batch.set(TX_COLLECTION().doc(e.id), e));
+    await batch.commit();
+  });
+  ui.modal = null;
+  render();
+}
+
+function addSettlement() {
+  const s = ui.settle;
+  const amountNum = parseFloat(String(s.amount).replace(",", "."));
+  if (isNaN(amountNum) || amountNum <= 0) return;
+  const isPaguei = s.direction === "paguei";
+  const fields = {
+    date: s.date,
+    description: s.description.trim() || (isPaguei ? "Acerto pago à esposa" : "Acerto recebido da esposa"),
+    category: CATEGORIA_ACERTO, type: isPaguei ? "despesa" : "receita", amount: amountNum,
+    isSettlement: true, settlementDirection: s.direction,
+  };
+  if (ui.editingSettleId) {
+    const id = ui.editingSettleId;
+    withSync(async () => {
+      await TX_COLLECTION().doc(id).update(fields);
+    });
+    ui.editingSettleId = null;
+  } else {
+    const entry = { id: uid(), ...fields };
+    withSync(async () => {
+      await TX_COLLECTION().doc(entry.id).set(entry);
+    });
+  }
+  ui.modal = null;
+  render();
+}
+
+function deleteTransaction(id) {
+  withSync(async () => {
+    await TX_COLLECTION().doc(id).delete();
+  });
+}
+
+/* ---------- Ações de Empréstimos ---------- */
+function freshLoanForm() {
+  return { name: "", initialAmount: "", installmentAmount: "", totalInstallments: "", startDate: todayISO() };
+}
+function freshLoanEntryForm() {
+  return { calendarMonth: todayISO().slice(0, 7), selectedDates: [], amounts: {}, description: "" };
+}
+function changeCalendarMonth(delta) {
+  const [y, m] = ui.loanEntryForm.calendarMonth.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  ui.loanEntryForm.calendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  render();
+}
+function toggleCalendarDate(dateStr) {
+  const f = ui.loanEntryForm;
+  if (f.selectedDates.includes(dateStr)) {
+    f.selectedDates = f.selectedDates.filter((d) => d !== dateStr);
+    delete f.amounts[dateStr];
+  } else {
+    f.selectedDates = [...f.selectedDates, dateStr].sort();
+    if (!(dateStr in f.amounts)) f.amounts[dateStr] = "";
+  }
+  render();
+}
+function updateLoanEntryAmount(dateStr, value) {
+  ui.loanEntryForm.amounts[dateStr] = value;
+}
+function openLoans() { ui.loansStep = "list"; ui.modal = "loans"; render(); }
+function closeLoans() { ui.modal = null; ui.loansStep = "list"; ui.selectedLoanId = null; ui.selectedPendingIds = []; render(); }
+function openNewLoanForm() { ui.loanForm = freshLoanForm(); ui.editingLoanId = null; ui.loansStep = "loanForm"; render(); }
+function openEditLoanForm(id) {
+  const loan = state.loans.find((l) => l.id === id);
+  if (!loan) return;
+  ui.loanForm = {
+    name: loan.name,
+    initialAmount: String(loan.initialAmount).replace(".", ","),
+    installmentAmount: loan.installmentAmount ? String(loan.installmentAmount).replace(".", ",") : "",
+    totalInstallments: loan.totalInstallments ? String(loan.totalInstallments) : "",
+    startDate: loan.startDate,
+  };
+  ui.editingLoanId = id;
+  ui.loansStep = "loanForm";
+  render();
+}
+function saveLoan() {
+  const f = ui.loanForm;
+  const installmentAmount = parseFloat(String(f.installmentAmount).replace(",", "."));
+  const totalInstallments = parseInt(f.totalInstallments, 10);
+  if (!f.name.trim() || isNaN(installmentAmount) || installmentAmount <= 0 || isNaN(totalInstallments) || totalInstallments <= 0) return;
+  const initialAmount = installmentAmount * totalInstallments;
+  const fields = {
+    name: f.name.trim(), initialAmount, installmentAmount, totalInstallments,
+    startDate: f.startDate,
+  };
+  if (ui.editingLoanId) {
+    const id = ui.editingLoanId;
+    withSync(async () => { await LOANS_COLLECTION().doc(id).update(fields); });
+  } else {
+    const loan = { id: uid(), ...fields };
+    withSync(async () => { await LOANS_COLLECTION().doc(loan.id).set(loan); });
+  }
+  ui.editingLoanId = null;
+  ui.loansStep = "list";
+  render();
+}
+function deleteLoan(id) {
+  if (!confirm("Excluir este empréstimo e todo o histórico dele? As entradas já lançadas no fluxo de caixa NÃO são apagadas automaticamente. Essa ação não pode ser desfeita.")) return;
+  const entryIds = state.loanEntries.filter((e) => e.loanId === id).map((e) => e.id);
+  withSync(async () => {
+    const batch = db.batch();
+    entryIds.forEach((eid) => batch.delete(LOAN_ENTRIES_COLLECTION().doc(eid)));
+    batch.delete(LOANS_COLLECTION().doc(id));
+    await batch.commit();
+  });
+  ui.loansStep = "list";
+  ui.selectedLoanId = null;
+  render();
+}
+function openLoanDetail(id) { ui.selectedLoanId = id; ui.selectedPendingIds = []; ui.loansStep = "detail"; render(); }
+
+function openNewLoanEntryForm(loanId) {
+  ui.loanEntryForm = freshLoanEntryForm();
+  ui.editingLoanEntryId = null;
+  ui.selectedLoanId = loanId;
+  ui.loansStep = "entryForm";
+  render();
+}
+function openEditLoanEntryForm(id) {
+  const e = state.loanEntries.find((x) => x.id === id);
+  if (!e || e.status === "closed") return; // corridas já usadas num fechamento não são editáveis (desfaça o fechamento primeiro)
+  ui.loanEntryForm = {
+    calendarMonth: e.date.slice(0, 7),
+    selectedDates: [e.date],
+    amounts: { [e.date]: String(e.amount).replace(".", ",") },
+    description: e.description || "",
+  };
+  ui.editingLoanEntryId = id;
+  ui.selectedLoanId = e.loanId;
+  ui.loansStep = "entryForm";
+  render();
+}
+function saveLoanEntry() {
+  const f = ui.loanEntryForm;
+  const desc = f.description.trim();
+
+  if (ui.editingLoanEntryId) {
+    // Edição: sempre uma única data (a que já existia)
+    const dateStr = f.selectedDates[0];
+    const amount = parseFloat(String(f.amounts[dateStr] || "").replace(",", "."));
+    if (!dateStr || isNaN(amount) || amount <= 0) return;
+    const id = ui.editingLoanEntryId;
+    withSync(async () => {
+      await LOAN_ENTRIES_COLLECTION().doc(id).update({ date: dateStr, amount, description: desc || "Corrida" });
+    });
+    ui.editingLoanEntryId = null;
+    ui.loansStep = "detail";
+    render();
+    return;
+  }
+
+  // Criação: uma entrada por data marcada no calendário, todas com a mesma observação (se preenchida)
+  const entries = f.selectedDates
+    .map((dateStr) => ({ date: dateStr, amount: parseFloat(String(f.amounts[dateStr] || "").replace(",", ".")) }))
+    .filter((row) => !isNaN(row.amount) && row.amount > 0)
+    .map((row) => ({
+      id: uid(), loanId: ui.selectedLoanId, date: row.date, amount: row.amount,
+      description: desc || "Corrida", status: "pending",
+    }));
+  if (entries.length === 0) return;
+  withSync(async () => {
+    const batch = db.batch();
+    entries.forEach((e) => batch.set(LOAN_ENTRIES_COLLECTION().doc(e.id), e));
+    await batch.commit();
+  });
+  ui.loansStep = "detail";
+  render();
+}
+function deleteLoanEntry(id) {
+  const e = state.loanEntries.find((x) => x.id === id);
+  if (!e) return;
+  if (e.status === "closed") {
+    deleteLoanClosing(e.closingId);
+  } else {
+    if (!confirm("Excluir este lançamento pendente?")) return;
+    withSync(async () => { await LOAN_ENTRIES_COLLECTION().doc(id).delete(); });
+  }
+}
+// Desfaz um fechamento: as corridas envolvidas voltam a ficar pendentes (nada é perdido),
+// e o delta daquele fechamento sai do saldo de acerto. Nunca existiu lançamento no fluxo de
+// caixa aqui — só quando o acerto é registrado — então não há nada a apagar lá.
+function deleteLoanClosing(closingId) {
+  if (!confirm("Desfazer este fechamento? As corridas envolvidas voltam para pendente e o valor sai do saldo de acerto.")) return;
+  const entryIds = state.loanEntries.filter((e) => e.closingId === closingId).map((e) => e.id);
+  withSync(async () => {
+    const batch = db.batch();
+    entryIds.forEach((eid) => batch.update(LOAN_ENTRIES_COLLECTION().doc(eid), { status: "pending", closingId: null, closingDate: null, closingDelta: null }));
+    await batch.commit();
+  });
+}
+function toggleSelectPendingEntry(id) {
+  ui.selectedPendingIds = ui.selectedPendingIds.includes(id)
+    ? ui.selectedPendingIds.filter((x) => x !== id)
+    : [...ui.selectedPendingIds, id];
+  render();
+}
+// Fecha uma parcela: soma as corridas marcadas e compara com o valor da parcela. Isso só ACUMULA
+// no saldo de acerto (sobra a seu favor ou excesso contra você) — NÃO lança nada no fluxo de caixa
+// ainda. Só quando o acerto é registrado de fato é que vira uma entrada/saída real.
+function closeInstallment() {
+  const loan = state.loans.find((l) => l.id === ui.selectedLoanId);
+  if (!loan) return;
+  const entries = state.loanEntries.filter((e) => ui.selectedPendingIds.includes(e.id));
+  const ridesTotal = entries.reduce((s, e) => s + e.amount, 0);
+  const delta = loan.installmentAmount - ridesTotal;
+  const closingId = uid();
+  const closingDate = todayISO();
+  withSync(async () => {
+    const batch = db.batch();
+    entries.forEach((e) => batch.update(LOAN_ENTRIES_COLLECTION().doc(e.id), { status: "closed", closingId, closingDate, closingDelta: delta }));
+    await batch.commit();
+  });
+  ui.selectedPendingIds = [];
+  render();
+}
+
+/* ---------- Acerto do empréstimo (só aqui vira lançamento de verdade no fluxo de caixa) ---------- */
+function freshLoanSettleForm(loanId) {
+  const saldo = computeLoanSaldoAcerto(loanId);
+  return {
+    date: todayISO(),
+    amount: Math.abs(saldo).toFixed(2).replace(".", ","),
+    direction: saldo >= 0 ? "recebi" : "paguei",
+    description: "",
+  };
+}
+function openLoanSettle(loanId) {
+  ui.selectedLoanId = loanId;
+  ui.loanSettleForm = freshLoanSettleForm(loanId);
+  ui.loansStep = "settleForm";
+  render();
+}
+function saveLoanSettle() {
+  const loan = state.loans.find((l) => l.id === ui.selectedLoanId);
+  if (!loan) return;
+  const f = ui.loanSettleForm;
+  const amount = parseFloat(String(f.amount).replace(",", "."));
+  if (isNaN(amount) || amount <= 0) return;
+  const isRecebi = f.direction === "recebi";
+  const tx = {
+    id: uid(), date: f.date,
+    description: f.description.trim() || (isRecebi ? `Acerto recebido — ${loan.name}` : `Acerto pago — ${loan.name}`),
+    category: `Empréstimo: ${loan.name}`, type: isRecebi ? "receita" : "despesa", amount,
+  };
+  withSync(async () => { await TX_COLLECTION().doc(tx.id).set(tx); });
+  ui.loansStep = "detail";
+  render();
+}
+
+function toggleSelectTx(id) {
+  ui.selectedIds = ui.selectedIds.includes(id)
+    ? ui.selectedIds.filter((x) => x !== id)
+    : [...ui.selectedIds, id];
+  render();
+}
+function toggleSelectAllMonth(checked) {
+  const monthTx = computeMonthTx(ui.monthFilter);
+  ui.selectedIds = checked ? monthTx.map((t) => t.id) : [];
+  render();
+}
+function confirmBulkDelete() {
+  const n = ui.selectedIds.length;
+  if (!n) return;
+  if (!confirm(`Excluir ${n} lançamento(s) selecionado(s)? Essa ação não pode ser desfeita.`)) return;
+  const ids = [...ui.selectedIds];
+  withSync(async () => {
+    for (let i = 0; i < ids.length; i += 400) {
+      const batch = db.batch();
+      ids.slice(i, i + 400).forEach((id) => batch.delete(TX_COLLECTION().doc(id)));
+      await batch.commit();
+    }
+  });
+  ui.selectMode = false;
+  ui.selectedIds = [];
+  render();
+}
+
+function saveSettings() {
+  const sf = ui.settingsForm;
+  const day = sf.closingDayInput ? Math.max(1, Math.min(31, parseInt(sf.closingDayInput, 10) || 1)) : null;
+  const margin = Math.max(0, Math.min(15, parseInt(sf.marginDaysInput, 10) || 0));
+  const settings = {
+    closingDay: day, marginDays: margin,
+    dueDay: sf.dueDayInput ? Math.max(1, Math.min(31, parseInt(sf.dueDayInput, 10) || 1)) : null,
+    meuNome: (sf.meuNomeInput || "").trim(), esposaNome: (sf.esposaNomeInput || "").trim(),
+    customCategoriesDespesa: state.settings.customCategoriesDespesa || [],
+    customCategoriesReceita: state.settings.customCategoriesReceita || [],
+    budgets: state.settings.budgets || {},
+  };
+  withSync(async () => {
+    await SETTINGS_DOC().set(settings);
+  });
+  ui.modal = null;
+  render();
+}
+
+function addCustomCategory() {
+  const name = ui.newCategoryInput.trim();
+  if (!name) return;
+  const field = ui.newCategoryType === "receita" ? "customCategoriesReceita" : "customCategoriesDespesa";
+  if (categoriesFor(ui.newCategoryType).includes(name)) {
+    ui.newCategoryInput = "";
+    render();
+    return;
+  }
+  const nextSettings = { ...state.settings, [field]: [...(state.settings[field] || []), name] };
+  withSync(async () => {
+    await SETTINGS_DOC().set(nextSettings);
+  });
+  ui.newCategoryInput = "";
+  render();
+}
+function removeCustomCategory(type, name) {
+  const field = type === "receita" ? "customCategoriesReceita" : "customCategoriesDespesa";
+  const nextSettings = { ...state.settings, [field]: (state.settings[field] || []).filter((c) => c !== name) };
+  withSync(async () => {
+    await SETTINGS_DOC().set(nextSettings);
+  });
+  render();
+}
+
+function saveBudget(category, valueStr) {
+  const value = parseFloat(String(valueStr).replace(",", "."));
+  const budgets = { ...(state.settings.budgets || {}) };
+  if (!valueStr || isNaN(value) || value <= 0) delete budgets[category];
+  else budgets[category] = value;
+  const nextSettings = { ...state.settings, budgets };
+  withSync(async () => {
+    await SETTINGS_DOC().set(nextSettings);
+  });
+  render();
+}
+
+function exportCsv() {
+  const header = ["Data", "Descrição", "Categoria", "Tipo", "Valor", "Forma de pagamento", "Dividido", "Pago por", "Sua parte (%)"];
+  const rows = [...state.transactions]
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .map((t) => [
+      t.date,
+      `"${(t.description || "").replace(/"/g, '""')}"`,
+      `"${(t.category || "").replace(/"/g, '""')}"`,
+      t.type === "receita" ? "Entrada" : "Saída",
+      t.amount.toFixed(2).replace(".", ","),
+      t.paymentMethod === "cartao" ? "Cartão" : "Dinheiro/Débito",
+      t.shared ? "Sim" : "Não",
+      t.shared ? (t.paidBy === "eu" ? "Você" : "Esposa") : "",
+      t.shared ? t.splitEu : "",
+    ]);
+  const csv = [header.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `fluxo-caixa-${todayISO()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function analyzeImport() {
+  const rows = parseFaturaText(ui.importRawText, ui.importReferenceMonth, ui.importMeuNome, ui.importEsposaNome);
+  if (!rows.length) {
+    ui.importError = "Não encontrei lançamentos reconhecíveis. Verifique se o texto foi colado corretamente.";
+    render();
+    return;
+  }
+  ui.importError = "";
+  ui.importRows = rows;
+  ui.importDetectedTotal = detectInvoiceTotal(ui.importRawText);
+  ui.importStep = "review";
+  render();
+}
+
+function confirmImport() {
+  const [ry, rm] = ui.importReferenceMonth.split("-");
+  const included = ui.importRows.filter((r) => r.include);
+  const entries = included.map((r) => {
+    const day = r.parsedDate ? r.parsedDate.slice(8, 10) : "01";
+    const date = `${ry}-${rm}-${day}`;
+    const shared = r.classification !== "so_eu";
+    const splitEu = r.classification === "dividido" ? Math.max(0, Math.min(100, parseFloat(r.splitEu) || 0))
+      : r.classification === "so_esposa" ? 0 : null;
+    return {
+      id: `${r.id}-final`, date, description: r.description, category: ui.importCategory,
+      type: "despesa", amount: r.amount, paymentMethod: "cartao",
+      shared, paidBy: shared ? "eu" : null, splitEu: shared ? splitEu : null,
+    };
+  });
+  withSync(async () => {
+    const batch = db.batch();
+    entries.forEach((e) => batch.set(TX_COLLECTION().doc(e.id), e));
+    await batch.commit();
+  });
+  ui.modal = null;
+  ui.importStep = "input";
+  ui.importRawText = "";
+  ui.importRows = [];
+  render();
+}
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `fluxo-caixa-backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importBackupFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(ev.target.result);
+      if (!Array.isArray(parsed.transactions)) throw new Error("formato inválido");
+    } catch (err) {
+      alert("Não consegui ler esse arquivo de backup.");
+      return;
+    }
+    if (!confirm(`Isso vai enviar ${parsed.transactions.length} lançamento(s) para a nuvem, somados aos que já existem. Continuar?`)) return;
+    withSync(async () => {
+      const chunks = [];
+      for (let i = 0; i < parsed.transactions.length; i += 400) chunks.push(parsed.transactions.slice(i, i + 400));
+      for (const chunk of chunks) {
+        const batch = db.batch();
+        chunk.forEach((t) => batch.set(TX_COLLECTION().doc(t.id || uid()), t));
+        await batch.commit();
+      }
+      if (parsed.settings) await SETTINGS_DOC().set(parsed.settings);
+    });
+    ui.modal = null;
+    render();
+    alert("Backup restaurado com sucesso!");
+  };
+  reader.readAsText(file, "utf-8");
+}
+
+/* ---------- Cálculos ---------- */
+function computeMonthTx(month) {
+  return state.transactions.filter((t) => t.date.slice(0, 7) === month).sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+function computeTotals(monthTx) {
+  const receitas = monthTx.filter((t) => t.type === "receita").reduce((s, t) => s + t.amount, 0);
+  const despesas = monthTx.filter((t) => t.type === "despesa").reduce((s, t) => s + t.amount, 0);
+  const cartao = monthTx.filter((t) => t.type === "despesa" && t.paymentMethod === "cartao").reduce((s, t) => s + t.amount, 0);
+  return { receitas, despesas, saldo: receitas - despesas, cartao };
+}
+function computeSaldoGeral(monthTx) {
+  return monthTx.reduce((s, t) => s + (t.type === "receita" ? t.amount : -t.amount), 0);
+}
+function computeSaldoEsposa(monthTx) {
+  let balance = 0;
+  for (const t of monthTx) {
+    if (t.isSettlement) balance += t.settlementDirection === "paguei" ? t.amount : -t.amount;
+    else if (t.shared && t.type === "despesa") {
+      const eu = t.splitEu ?? 50, dela = 100 - eu;
+      if (t.paidBy === "eu") balance += (t.amount * dela) / 100;
+      else balance -= (t.amount * eu) / 100;
+    }
+  }
+  return balance;
+}
+// Lista, item a item, tudo que compõe o saldo com a esposa no mês selecionado (contas divididas
+// + acertos feitos naquele mês), do mais recente pro mais antigo, com a contribuição de cada um.
+function computeDebtBreakdown(monthTx) {
+  const items = [];
+  for (const t of monthTx) {
+    if (t.isSettlement) {
+      const contribution = t.settlementDirection === "paguei" ? t.amount : -t.amount;
+      items.push({ tx: t, contribution, kind: "settlement" });
+    } else if (t.shared && t.type === "despesa") {
+      const eu = t.splitEu ?? 50, dela = 100 - eu;
+      const contribution = t.paidBy === "eu" ? (t.amount * dela) / 100 : -((t.amount * eu) / 100);
+      items.push({ tx: t, contribution, kind: "shared" });
+    }
+  }
+  return items.sort((a, b) => (a.tx.date < b.tx.date ? 1 : -1));
+}
+function computeRunningMap(monthTx) {
+  const asc = [...monthTx].sort((a, b) => (a.date > b.date ? 1 : -1));
+  let running = 0; const map = {};
+  for (const t of asc) { running += t.type === "receita" ? t.amount : -t.amount; map[t.id] = running; }
+  return map;
+}
+function computeAvailableMonths() {
+  const set = new Set(state.transactions.map((t) => t.date.slice(0, 7)));
+  set.add(todayISO().slice(0, 7));
+  return [...set].sort().reverse();
+}
+// Compara entradas/saídas/saldo dos últimos N meses com dados (mais antigo primeiro).
+function computeMonthlyTrend(count) {
+  const months = computeAvailableMonths().slice(0, count).reverse();
+  return months.map((mo) => {
+    const t = computeTotals(computeMonthTx(mo));
+    return { month: mo, receitas: t.receitas, despesas: t.despesas, saldo: t.saldo };
+  });
+}
+function computeProjecaoCartao() {
+  const currentMonth = todayISO().slice(0, 7);
+  const byMonth = {};
+  for (const t of state.transactions) {
+    if (t.type === "despesa" && t.paymentMethod === "cartao") {
+      const mo = t.date.slice(0, 7);
+      if (mo >= currentMonth) byMonth[mo] = (byMonth[mo] || 0) + t.amount;
+    }
+  }
+  return Object.entries(byMonth).sort(([a], [b]) => (a < b ? -1 : 1)).slice(0, 6);
+}
+// Soma as despesas do mês por categoria (ignora acertos com a esposa, que não são gasto de fato),
+// ordenado do maior pro menor, já com o percentual sobre o total.
+function computeCategoryBreakdown(monthTx) {
+  const byCat = {};
+  let total = 0;
+  for (const t of monthTx) {
+    if (t.type !== "despesa" || t.isSettlement) continue;
+    byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+    total += t.amount;
+  }
+  const budgets = state.settings.budgets || {};
+  const rows = Object.entries(byCat)
+    .map(([category, amount]) => {
+      const budget = budgets[category] || null;
+      return {
+        category, amount,
+        pct: total > 0 ? (amount / total) * 100 : 0,
+        budget,
+        budgetPct: budget ? (amount / budget) * 100 : null,
+      };
+    })
+    .sort((a, b) => b.amount - a.amount);
+  const overBudget = rows.filter((r) => r.budget && r.amount > r.budget);
+  return { rows, total, overBudget };
+}
+// Quantos dias faltam até o próximo vencimento da fatura (dia fixo do mês), ou null se não configurado.
+function computeDaysUntilDue(dueDay) {
+  if (!dueDay) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let due = new Date(today.getFullYear(), today.getMonth(), dueDay);
+  if (due < today) due = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+  return Math.round((due - today) / 86400000);
+}
+
+/* ---------- Ícones (SVG inline simples) ---------- */
+const ICONS = {
+  plus: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  trash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>`,
+  edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  up: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FBE9E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+  down: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97D80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`,
+  wallet: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>`,
+  card: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FAEDB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+  cardSm: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+  users: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  usersSm: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`,
+  hand: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 12h4a2 2 0 1 0 0-4h-3"/><path d="M4 12v-1a2 2 0 0 1 2-2h4l6 2"/><path d="M4 17h2a2 2 0 0 0 2-2v-2"/></svg>`,
+  chart: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+  loan: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8B8578" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>`,
+  car: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 0 0 .01M19 17a2 2 0 1 0 0 .01M5 17V9l2-5h10l2 5v8M5 9h14"/></svg>`,
+  x: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B8578" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  xSmall: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  settings: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8B8578" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  upload: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8B8578" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+  check: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><polyline points="20 6 9 17 4 12"/></svg>`,
+};
+
+/* ---------- Render ---------- */
+function esc(s) { return String(s == null ? "" : s).replace(/"/g, "&quot;"); }
+// Escapa texto que vai virar argumento de string JS dentro de atributos onclick/onchange
+// (ex.: onclick="fn('${escJs(nome)}')") — evita quebrar o JS se o texto tiver aspas simples,
+// barra invertida ou quebra de linha.
+function escJs(s) {
+  return String(s == null ? "" : s)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "");
+}
+
+function renderLogin() {
+  return `
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-title">Fluxo de Caixa</div>
+        <div class="login-sub">Entre com o e-mail e senha cadastrados</div>
+        <form onsubmit="event.preventDefault();doLogin(document.getElementById('login-email').value.trim(),document.getElementById('login-password').value)">
+          <label class="field" style="margin-bottom:12px">E-mail
+            <input id="login-email" type="email" value="${esc(loginEmail)}" autocomplete="username" required />
+          </label>
+          <label class="field" style="margin-bottom:16px">Senha
+            <input id="login-password" type="password" value="${esc(loginPassword)}" autocomplete="current-password" required />
+          </label>
+          ${loginError ? `<div class="error-text" style="margin-bottom:12px">${esc(loginError)}</div>` : ""}
+          <button type="submit" class="submit-btn" ${loginLoading ? "disabled" : ""} style="opacity:${loginLoading ? 0.6 : 1};width:100%">
+            ${loginLoading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
+      </div>
+    </div>`;
+}
+
+function captureUIState() {
+  const active = document.activeElement;
+  const focusKey = active && active.getAttribute ? active.getAttribute("data-focus") : null;
+  const hasSelection = active && typeof active.selectionStart === "number";
+  const sel = hasSelection ? [active.selectionStart, active.selectionEnd] : null;
+  const modal = document.querySelector(".modal, .modal-large");
+  const modalScroll = modal ? modal.scrollTop : null;
+  const importList = document.querySelector(".import-list");
+  const importListScroll = importList ? importList.scrollTop : null;
+  const bodyScroll = window.scrollY;
+  return { focusKey, sel, modalScroll, importListScroll, bodyScroll };
+}
+function restoreUIState(snap) {
+  if (snap.focusKey) {
+    const el = document.querySelector(`[data-focus="${snap.focusKey}"]`);
+    if (el) {
+      el.focus({ preventScroll: true });
+      if (snap.sel && typeof el.setSelectionRange === "function") {
+        try { el.setSelectionRange(snap.sel[0], snap.sel[1]); } catch (e) {}
+      }
+    }
+  }
+  const modal = document.querySelector(".modal, .modal-large");
+  if (modal && snap.modalScroll != null) modal.scrollTop = snap.modalScroll;
+  const importList = document.querySelector(".import-list");
+  if (importList && snap.importListScroll != null) importList.scrollTop = snap.importListScroll;
+  if (!snap.focusKey) window.scrollTo(0, snap.bodyScroll);
+}
+
+function render() {
+  const snap = captureUIState();
+  renderInner();
+  restoreUIState(snap);
+}
+
+function renderInner() {
+  if (!authUser) {
+    document.getElementById("app").innerHTML = renderLogin();
+    return;
+  }
+  if (!dataReady) {
+    document.getElementById("app").innerHTML = `<div class="login-wrap"><div class="hint">Carregando seus dados...</div></div>`;
+    return;
+  }
+  const monthTx = computeMonthTx(ui.monthFilter);
+  const totals = computeTotals(monthTx);
+  const saldoGeral = computeSaldoGeral(monthTx);
+  const saldoEsposa = computeSaldoEsposa(monthTx);
+  const runningMap = computeRunningMap(monthTx);
+  const availableMonths = computeAvailableMonths();
+  const projecaoCartao = computeProjecaoCartao();
+  const [y, m] = ui.monthFilter.split("-");
+  const monthLabel = `${MONTHS_PT[parseInt(m, 10) - 1]} de ${y}`;
+
+  const html = `
+    <div class="container">
+      <header class="header">
+        <div>
+          <div class="eyebrow">LIVRO CAIXA · CONTROLE PESSOAL</div>
+          <h1>Fluxo de Caixa</h1>
+        </div>
+        <div class="saldo-geral-box">
+          <div class="saldo-geral-label">Saldo do mês</div>
+          <div class="saldo-geral-value" style="color:${saldoGeral >= 0 ? "#7FBE9E" : "#D97D80"}">${formatBRL(saldoGeral)}</div>
+        </div>
+        <div class="header-btns">
+          <button class="icon-btn-outline" onclick="openLoans()" aria-label="Empréstimos">${ICONS.loan}</button>
+          <button class="icon-btn-outline" onclick="openImport()">${ICONS.upload}</button>
+          <button class="icon-btn-outline" onclick="openSettings()">${ICONS.settings}</button>
+        </div>
+      </header>
+
+      <div class="user-bar" style="margin:-14px 0 18px">
+        <span class="sync-dot ${syncing ? "syncing" : ""}"></span>
+        ${esc(authUser.email)} · <button class="logout-link" onclick="doLogout()">sair</button>
+      </div>
+
+      ${(() => {
+        const days = computeDaysUntilDue(state.settings.dueDay);
+        if (days == null || days > 5 || days < 0) return "";
+        const currentMonthTotals = computeTotals(computeMonthTx(todayISO().slice(0, 7)));
+        return `<div class="reminder-banner">
+          ${ICONS.card} ${days === 0 ? "A fatura vence hoje" : days === 1 ? "A fatura vence amanhã" : `A fatura vence em ${days} dias`}
+          ${currentMonthTotals.cartao > 0 ? ` · fatura do mês atual: ${formatBRL(currentMonthTotals.cartao)}` : ""}
+        </div>`;
+      })()}
+
+      ${(() => {
+        const { overBudget } = computeCategoryBreakdown(monthTx);
+        if (!overBudget || overBudget.length === 0) return "";
+        return `<div class="budget-alert-banner">
+          ⚠️ Passou do orçamento em ${monthLabel}: ${overBudget.map((r) => `${esc(r.category)} (${formatBRL(r.amount)} de ${formatBRL(r.budget)})`).join(", ")}
+        </div>`;
+      })()}
+
+      <div class="summary-bar">
+        <select class="month-select" onchange="ui.monthFilter=this.value;ui.selectedIds=[];render()">
+          ${availableMonths.map((mo) => {
+            const [yy, mm] = mo.split("-");
+            return `<option value="${mo}" ${mo === ui.monthFilter ? "selected" : ""}>${MONTHS_PT[parseInt(mm, 10) - 1]} ${yy}</option>`;
+          }).join("")}
+        </select>
+
+        <div class="summary-cards">
+          <div class="summary-card">${ICONS.up}<div><div class="summary-label">Entradas</div><div class="summary-value" style="color:#7FBE9E">${formatBRL(totals.receitas)}</div></div></div>
+          <div class="summary-card">${ICONS.down}<div><div class="summary-label">Saídas</div><div class="summary-value" style="color:#D97D80">${formatBRL(totals.despesas)}</div></div></div>
+          <div class="summary-card">${ICONS.wallet}<div><div class="summary-label">Saldo do mês</div><div class="summary-value" style="color:${totals.saldo >= 0 ? "#7FBE9E" : "#D97D80"}">${formatBRL(totals.saldo)}</div></div></div>
+          <div class="summary-card">${ICONS.card}<div><div class="summary-label">Fatura do cartão</div><div class="summary-value" style="color:#8FAEDB">${formatBRL(totals.cartao)}</div></div></div>
+          <button class="summary-card summary-card-btn" onclick="openDebtDetail()">${ICONS.users}<div><div class="summary-label">${saldoEsposa >= 0 ? "Esposa te deve" : "Você deve à esposa"}</div><div class="summary-value" style="color:${saldoEsposa >= 0 ? "#7FBE9E" : "#D97D80"}">${formatBRL(Math.abs(saldoEsposa))}</div></div></button>
+        </div>
+
+        ${Math.abs(saldoEsposa) > 0.004 ? `<button class="settle-link" onclick="openSettle()">${ICONS.hand} Registrar acerto com a esposa</button>` : ""}
+
+        ${projecaoCartao.length > 1 ? `
+          <div class="projection-box">
+            <div class="projection-title">${ICONS.card} Próximas faturas do cartão</div>
+            <div class="projection-row">
+              ${projecaoCartao.map(([mo, total]) => {
+                const [yy, mm] = mo.split("-");
+                return `<button class="projection-cell" style="border-color:${mo === ui.monthFilter ? "#8FAEDB" : "#32473a"}" onclick="ui.monthFilter='${mo}';render()">
+                  <div class="projection-month">${MONTHS_PT[parseInt(mm, 10) - 1].slice(0, 3)}/${yy.slice(2)}</div>
+                  <div class="projection-value">${formatBRL(total)}</div>
+                </button>`;
+              }).join("")}
+            </div>
+          </div>` : ""}
+
+        ${(() => {
+          const { rows: catRows } = computeCategoryBreakdown(monthTx);
+          if (catRows.length === 0) return "";
+          return `
+            <button class="settle-link" style="border-color:#3d4f42;color:#A8A296;margin-top:10px" onclick="ui.showCategoryBreakdown=!ui.showCategoryBreakdown;render()">
+              ${ICONS.chart} ${ui.showCategoryBreakdown ? "Esconder" : "Ver"} gastos por categoria
+            </button>
+            ${ui.showCategoryBreakdown ? `
+              <div class="projection-box" style="margin-top:10px">
+                <div class="projection-title">${ICONS.chart} Gastos por categoria em ${monthLabel}</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  ${catRows.map((r) => {
+                    const barColor = r.budget ? (r.budgetPct >= 100 ? "#A63D40" : r.budgetPct >= 80 ? "#C9A227" : "#2E7D5B") : "#C9A227";
+                    const barPct = r.budget ? Math.min(100, r.budgetPct) : r.pct;
+                    return `
+                    <div class="category-row-btn" role="button" tabindex="0" onclick="openCategoryDetail('${escJs(r.category)}')">
+                      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px">
+                        <span>${esc(r.category)}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace;color:#A8A296">
+                          ${r.budget ? `${formatBRL(r.amount)} de ${formatBRL(r.budget)} (${r.budgetPct.toFixed(0)}%)` : `${formatBRL(r.amount)} · ${r.pct.toFixed(0)}%`}
+                        </span>
+                      </div>
+                      <div style="background:#1B2B23;border-radius:4px;height:7px;overflow:hidden">
+                        <div style="background:${barColor};height:100%;width:${Math.max(2, barPct)}%"></div>
+                      </div>
+                    </div>`;
+                  }).join("")}
+                </div>
+              </div>` : ""}`;
+        })()}
+
+        ${(() => {
+          const trend = computeMonthlyTrend(6);
+          if (trend.length < 2) return "";
+          const maxVal = Math.max(1, ...trend.map((m) => Math.max(m.receitas, m.despesas)));
+          return `
+            <button class="settle-link" style="border-color:#3d4f42;color:#A8A296;margin-top:10px" onclick="ui.showTrend=!ui.showTrend;render()">
+              ${ICONS.chart} ${ui.showTrend ? "Esconder" : "Ver"} comparativo entre meses
+            </button>
+            ${ui.showTrend ? `
+              <div class="projection-box" style="margin-top:10px">
+                <div class="projection-title">${ICONS.chart} Entradas x saídas — últimos ${trend.length} meses</div>
+                <div style="display:flex;align-items:flex-end;gap:10px;height:120px;padding-top:6px">
+                  ${trend.map((m) => {
+                    const [yy, mm] = m.month.split("-");
+                    const hR = Math.max(2, (m.receitas / maxVal) * 100);
+                    const hD = Math.max(2, (m.despesas / maxVal) * 100);
+                    return `
+                      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0">
+                        <div style="display:flex;align-items:flex-end;gap:2px;height:100px;width:100%;justify-content:center">
+                          <div title="Entradas: ${formatBRL(m.receitas)}" style="width:38%;background:#2E7D5B;border-radius:3px 3px 0 0;height:${hR}%"></div>
+                          <div title="Saídas: ${formatBRL(m.despesas)}" style="width:38%;background:#A63D40;border-radius:3px 3px 0 0;height:${hD}%"></div>
+                        </div>
+                        <div style="font-size:10px;color:#8B8578;text-align:center">${MONTHS_PT[parseInt(mm, 10) - 1].slice(0, 3)}/${yy.slice(2)}</div>
+                      </div>`;
+                  }).join("")}
+                </div>
+                <div style="display:flex;gap:14px;justify-content:center;margin-top:10px;font-size:11px;color:#8B8578">
+                  <span><span style="display:inline-block;width:9px;height:9px;background:#2E7D5B;border-radius:2px;margin-right:4px"></span>Entradas</span>
+                  <span><span style="display:inline-block;width:9px;height:9px;background:#A63D40;border-radius:2px;margin-right:4px"></span>Saídas</span>
+                </div>
+              </div>` : ""}`;
+        })()}
+      </div>
+
+      <div class="ledger-wrap">
+        ${!ui.selectMode ? `
+          <div class="search-row">
+            <input data-focus="ledger-search" type="search" value="${esc(ui.searchQuery)}" oninput="ui.searchQuery=this.value;render()" placeholder="Buscar por descrição ou categoria..." />
+          </div>` : ""}
+        <div class="ledger-toolbar">
+          ${!ui.selectMode ? `
+            ${monthTx.length > 0 ? `<button class="select-toggle-btn" onclick="ui.selectMode=true;ui.selectedIds=[];ui.searchQuery='';render()">Selecionar</button>` : `<span></span>`}
+          ` : `
+            <label class="checkbox-row" style="font-size:12.5px">
+              <input type="checkbox" ${ui.selectedIds.length === monthTx.length && monthTx.length > 0 ? "checked" : ""} onchange="toggleSelectAllMonth(this.checked)" />
+              ${ui.selectedIds.length > 0 ? `${ui.selectedIds.length} selecionado(s)` : `Selecionar todos (${monthTx.length})`}
+            </label>
+            <div style="display:flex;gap:8px">
+              ${ui.selectedIds.length > 0 ? `<button class="select-toggle-btn danger" onclick="confirmBulkDelete()">Excluir</button>` : ""}
+              <button class="select-toggle-btn" onclick="ui.selectMode=false;ui.selectedIds=[];render()">Cancelar</button>
+            </div>
+          `}
+        </div>
+        <div class="ledger-header-row">
+          <div class="th" style="flex:0 0 90px">Data</div>
+          <div class="th" style="flex:1 1 auto">Descrição</div>
+          <div class="th hide-sm" style="flex:0 0 110px">Categoria</div>
+          <div class="th" style="flex:0 0 110px;text-align:right">Valor</div>
+          <div class="th hide-sm" style="flex:0 0 120px;text-align:right">Saldo</div>
+          <div class="th" style="flex:0 0 64px"></div>
+        </div>
+        ${(() => {
+          const q = ui.searchQuery.trim().toLowerCase();
+          const visibleTx = q
+            ? monthTx.filter((t) => t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q))
+            : monthTx;
+          if (visibleTx.length === 0) {
+            return `<div class="empty-state">${
+              monthTx.length === 0
+                ? `Nenhum lançamento em ${monthLabel}. Toque em "+" para começar a escriturar.`
+                : `Nenhum lançamento encontrado para "${esc(ui.searchQuery)}".`
+            }</div>`;
+          }
+          return visibleTx.map((t) => `
+          <div class="ledger-row">
+            ${ui.selectMode ? `
+              <div class="td" style="flex:0 0 30px">
+                <input type="checkbox" ${ui.selectedIds.includes(t.id) ? "checked" : ""} onchange="toggleSelectTx('${t.id}')" />
+              </div>` : ""}
+            <div class="td" style="flex:0 0 90px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A8A296">${t.date.slice(8,10)}/${t.date.slice(5,7)}</div>
+            <div class="td" style="flex:1 1 auto">
+              <div style="font-weight:500">${esc(t.description)}</div>
+              ${(t.paymentMethod === "cartao" || t.shared) ? `
+                <div class="badge-row">
+                  ${t.paymentMethod === "cartao" ? `<span class="badge">${ICONS.cardSm} cartão</span>` : ""}
+                  ${t.shared ? `<span class="badge">${ICONS.usersSm} ${t.paidBy === "eu" ? "paguei · você" : "paguei · esposa"} ${t.splitEu}/${100 - t.splitEu}</span>` : ""}
+                </div>` : ""}
+            </div>
+            <div class="td hide-sm" style="flex:0 0 110px;color:#A8A296;font-size:12.5px">${esc(t.category)}</div>
+            <div class="td" style="flex:0 0 110px;text-align:right;font-family:'IBM Plex Mono',monospace;color:${t.type === "receita" ? "#7FBE9E" : "#D97D80"}">${t.type === "receita" ? "+" : "−"} ${formatBRL(t.amount)}</div>
+            <div class="td hide-sm" style="flex:0 0 120px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#8B8578;font-size:12.5px">${formatBRL(runningMap[t.id] || 0)}</div>
+            ${!ui.selectMode ? `
+              <div class="td" style="flex:0 0 64px;text-align:center;display:flex;gap:2px;justify-content:flex-end">
+                <button class="icon-btn" onclick="${t.isSettlement ? `openEditSettle('${t.id}')` : `openEditForm('${t.id}')`}" aria-label="Editar">${ICONS.edit}</button>
+                <button class="icon-btn" onclick="if(confirm('Excluir este lançamento?'))deleteTransaction('${t.id}')" aria-label="Excluir">${ICONS.trash}</button>
+              </div>` : ""}
+          </div>`).join("");
+        })()}
+      </div>
+    </div>
+
+    <button class="fab" onclick="openForm()">${ICONS.plus}</button>
+
+    ${ui.modal === "form" ? renderFormModal() : ""}
+    ${ui.modal === "settle" ? renderSettleModal(saldoEsposa) : ""}
+    ${ui.modal === "settings" ? renderSettingsModal() : ""}
+    ${ui.modal === "import" ? renderImportModal() : ""}
+    ${ui.modal === "debtDetail" ? renderDebtDetailModal(saldoEsposa, monthTx) : ""}
+    ${ui.modal === "categoryDetail" ? renderCategoryDetailModal(monthTx, monthLabel) : ""}
+    ${ui.modal === "loans" ? renderLoansModal() : ""}
+  `;
+  document.getElementById("app").innerHTML = html;
+}
+
+function renderFormModal() {
+  const f = ui.form;
+  const isDespesa = f.type === "despesa";
+  const cats = categoriesFor(f.type);
+  let hint = "";
+  if (isDespesa && f.paymentMethod === "cartao") {
+    const anchor = faturaAnchorDate(f.date, state.settings.closingDay, state.settings.marginDays);
+    const am = anchor.slice(5, 7);
+    const label = MONTHS_PT[parseInt(am, 10) - 1];
+    const shifted = anchor !== f.date;
+    const n = parseInt(f.installments, 10) || 1;
+    const amountNum = parseFloat(String(f.amount).replace(",", ".")) || 0;
+    const parcelaTxt = n > 1 && f.amount ? `${n}x de ${formatBRL(amountNum / n)}` : "1 parcela";
+    hint = `${parcelaTxt} · 1ª na fatura de ${label}${shifted ? " (dentro da margem/após o fechamento)" : ""}`;
+  }
+  return `
+    <div class="modal-overlay" onclick="ui.modal=null;ui.editingId=null;render()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2 class="modal-title">${ui.editingId ? "Editar lançamento" : "Novo lançamento"}</h2><button class="icon-btn" onclick="ui.modal=null;ui.editingId=null;render()">${ICONS.x}</button></div>
+
+        <div class="type-toggle">
+          <button class="type-btn ${f.type === "despesa" ? "active-despesa" : ""}" onclick="setFormType('despesa')">Saída</button>
+          <button class="type-btn ${f.type === "receita" ? "active-receita" : ""}" onclick="setFormType('receita')">Entrada</button>
+        </div>
+
+        <label class="field">Descrição
+          <input data-focus="form-description" value="${esc(f.description)}" oninput="ui.form.description=this.value" placeholder="Ex.: Supermercado, salário, aluguel..." />
+        </label>
+
+        <div class="row2">
+          <label class="field">Valor${ui.editingId && f.description.match(/\(\d+\/\d+\)$/) ? " desta parcela" : " total"} (R$)
+            <input data-focus="form-amount" value="${esc(f.amount)}" oninput="ui.form.amount=this.value;render()" placeholder="0,00" inputmode="decimal" />
+          </label>
+          <label class="field">Data
+            <input type="date" value="${f.date}" onchange="ui.form.date=this.value;render()" />
+          </label>
+        </div>
+
+        <label class="field">Categoria
+          <select onchange="ui.form.category=this.value">
+            ${cats.map((c) => `<option value="${c}" ${f.category === c ? "selected" : ""}>${c}</option>`).join("")}
+          </select>
+        </label>
+
+        ${isDespesa ? `
+          <div class="divider"></div>
+          <label class="field">Forma de pagamento
+            <div class="type-toggle">
+              <button class="type-btn ${f.paymentMethod === "dinheiro" ? "active-neutral" : ""}" onclick="ui.form.paymentMethod='dinheiro';ui.form.installments='1';render()">Dinheiro / Débito</button>
+              <button class="type-btn ${f.paymentMethod === "cartao" ? "active-neutral" : ""}" onclick="ui.form.paymentMethod='cartao';render()">Cartão de crédito</button>
+            </div>
+          </label>
+
+          ${f.paymentMethod === "cartao" && !ui.editingId ? `
+            <label class="field">Número de parcelas
+              <input data-focus="form-installments" type="number" min="1" max="24" value="${f.installments}" oninput="ui.form.installments=this.value;render()" />
+              <span class="hint">${hint}</span>
+            </label>` : ""}
+          ${f.paymentMethod === "cartao" && ui.editingId ? `<span class="hint">A edição altera só este lançamento — as outras parcelas do grupo (se houver) não são afetadas.</span>` : ""}
+
+          <label class="checkbox-row">
+            <input type="checkbox" ${f.shared ? "checked" : ""} onchange="ui.form.shared=this.checked;render()" /> Conta dividida com a esposa
+          </label>
+
+          ${f.shared ? `
+            <label class="field">Quem pagou
+              <div class="type-toggle">
+                <button class="type-btn ${f.paidBy === "eu" ? "active-neutral" : ""}" onclick="ui.form.paidBy='eu';render()">Você</button>
+                <button class="type-btn ${f.paidBy === "esposa" ? "active-neutral" : ""}" onclick="ui.form.paidBy='esposa';render()">Esposa</button>
+              </div>
+            </label>
+            <label class="field">Sua parte (%) — o restante fica com a esposa
+              <input data-focus="form-spliteu" type="number" min="0" max="100" value="${f.splitEu}" oninput="ui.form.splitEu=this.value" />
+            </label>` : ""}
+        ` : ""}
+
+        <button class="submit-btn" onclick="addTransaction()">${ui.editingId ? "Salvar alterações" : "Registrar lançamento"}</button>
+      </div>
+    </div>`;
+}
+
+function renderLoansModal() {
+  if (ui.loansStep === "loanForm") return renderLoanFormModal();
+  if (ui.loansStep === "detail") return renderLoanDetailModal();
+  if (ui.loansStep === "entryForm") return renderLoanEntryFormModal();
+  if (ui.loansStep === "settleForm") return renderLoanSettleFormModal();
+  return renderLoansListModal();
+}
+
+function renderLoansListModal() {
+  return `
+    <div class="modal-overlay" onclick="closeLoans()">
+      <div class="modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title">Empréstimos</h2>
+          <button class="icon-btn" onclick="closeLoans()">${ICONS.x}</button>
+        </div>
+        ${state.loans.length === 0 ? `<div class="hint">Nenhum empréstimo cadastrado ainda.</div>` : `
+          <div class="import-list">
+            ${state.loans.map((loan) => {
+              const saldo = computeLoanBalance(loan.id);
+              const pendente = computeLoanPendingTotal(loan.id);
+              const saldoAcerto = computeLoanSaldoAcerto(loan.id);
+              return `
+                <div class="import-row" style="cursor:pointer" onclick="openLoanDetail('${loan.id}')">
+                  <div class="import-row-top">
+                    <div>
+                      <div style="font-weight:500;font-size:14px">${esc(loan.name)}</div>
+                      <div class="hint">Emprestado: ${formatBRL(loan.initialAmount)} · ${loan.totalInstallments}x de ${formatBRL(loan.installmentAmount)}${pendente > 0 ? ` · ${formatBRL(pendente)} pendente` : ""}${Math.abs(saldoAcerto) > 0.004 ? ` · acerto: ${formatBRL(Math.abs(saldoAcerto))} ${saldoAcerto > 0 ? "a seu favor" : "contra você"}` : ""}</div>
+                    </div>
+                    <span class="import-amount" style="color:${saldo > 0 ? "#D97D80" : "#7FBE9E"}">${saldo > 0 ? formatBRL(saldo) : "Quitado"}</span>
+                  </div>
+                </div>`;
+            }).join("")}
+          </div>`}
+        <button class="submit-btn" onclick="openNewLoanForm()">+ Novo empréstimo</button>
+      </div>
+    </div>`;
+}
+
+function renderLoanFormModal() {
+  const f = ui.loanForm;
+  const installmentAmount = parseFloat(String(f.installmentAmount).replace(",", "."));
+  const totalInstallments = parseInt(f.totalInstallments, 10);
+  const computedTotal = installmentAmount > 0 && totalInstallments > 0 ? installmentAmount * totalInstallments : null;
+  return `
+    <div class="modal-overlay" onclick="ui.loansStep='list';render()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title">${ui.editingLoanId ? "Editar empréstimo" : "Novo empréstimo"}</h2>
+          <button class="icon-btn" onclick="ui.loansStep='list';render()">${ICONS.x}</button>
+        </div>
+        <label class="field">Nome (quem deve / do que se trata)
+          <input data-focus="loan-name" value="${esc(f.name)}" oninput="ui.loanForm.name=this.value" placeholder="Ex.: Empréstimo ao tio" />
+        </label>
+
+        <div class="row2">
+          <label class="field">Valor da parcela mensal (R$)
+            <input data-focus="loan-installmentamount" value="${esc(f.installmentAmount)}" oninput="ui.loanForm.installmentAmount=this.value;render()" placeholder="Ex.: 384,00" inputmode="decimal" />
+          </label>
+          <label class="field">Nº de parcelas
+            <input data-focus="loan-totalinstallments" type="number" min="1" value="${esc(f.totalInstallments)}" oninput="ui.loanForm.totalInstallments=this.value;render()" placeholder="Ex.: 24" />
+          </label>
+        </div>
+        ${computedTotal != null ? `<span class="hint">Valor total do empréstimo: ${formatBRL(computedTotal)}</span>` : ""}
+        <span class="hint">Cada fechamento de corridas resolve uma parcela inteira: se as corridas ficarem abaixo da parcela, a diferença vira entrada no seu fluxo de caixa; se passarem, o excedente vira saída.</span>
+
+        <label class="field">Data da 1ª parcela / início do empréstimo
+          <input type="date" value="${f.startDate}" onchange="ui.loanForm.startDate=this.value" />
+        </label>
+        <button class="submit-btn" onclick="saveLoan()">${ui.editingLoanId ? "Salvar alterações" : "Cadastrar empréstimo"}</button>
+      </div>
+    </div>`;
+}
+
+function renderLoanDetailModal() {
+  const loan = state.loans.find((l) => l.id === ui.selectedLoanId);
+  if (!loan) return "";
+  const pending = computeLoanEntries(loan.id, "pending");
+  const saldo = computeLoanBalance(loan.id);
+  const resolvido = loan.initialAmount - saldo;
+  const pct = loan.initialAmount > 0 ? Math.min(100, (resolvido / loan.initialAmount) * 100) : 0;
+  const schedule = computeLoanScheduleInfo(loan);
+  const installmentsResolved = computeLoanInstallmentsResolved(loan.id);
+  const saldoAcerto = computeLoanSaldoAcerto(loan.id);
+  const selectedEntries = pending.filter((e) => ui.selectedPendingIds.includes(e.id));
+  const selectedTotal = selectedEntries.reduce((s, e) => s + e.amount, 0);
+  const preview = computeClosingPreview(loan, selectedTotal);
+  const closings = computeLoanClosings(loan.id);
+  const settlements = state.transactions
+    .filter((t) => t.category === `Empréstimo: ${loan.name}`)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  return `
+    <div class="modal-overlay" onclick="closeLoans()">
+      <div class="modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title">${esc(loan.name)}</h2>
+          <div style="display:flex;gap:4px">
+            <button class="icon-btn" onclick="openEditLoanForm('${loan.id}')" aria-label="Editar empréstimo">${ICONS.edit}</button>
+            <button class="icon-btn" onclick="deleteLoan('${loan.id}')" aria-label="Excluir empréstimo">${ICONS.trash}</button>
+            <button class="icon-btn" onclick="closeLoans()">${ICONS.x}</button>
+          </div>
+        </div>
+
+        <div class="balance-hint">
+          Saldo devedor do empréstimo: <strong style="color:${saldo > 0 ? "#D97D80" : "#7FBE9E"}">${saldo > 0 ? formatBRL(saldo) : "Quitado"}</strong>
+          <br />Parcelas fechadas: ${installmentsResolved} de ${loan.totalInstallments} (${formatBRL(loan.installmentAmount)}/parcela)
+          ${schedule ? `<br />Previsto até agora: ${schedule.months} parcela(s) — ${schedule.aoDia ? `<span style="color:#7FBE9E">em dia</span>` : `<span style="color:#D97D80">atrasado</span>`}` : ""}
+        </div>
+        <div style="background:#1B2B23;border-radius:4px;height:7px;overflow:hidden">
+          <div style="background:#2E7D5B;height:100%;width:${Math.max(2, pct)}%"></div>
+        </div>
+
+        <div class="balance-hint" style="border-color:#C9A227">
+          Saldo de acerto pendente: <strong style="color:${saldoAcerto === 0 ? "#A8A296" : saldoAcerto > 0 ? "#7FBE9E" : "#D97D80"}">
+            ${saldoAcerto === 0 ? "Zerado" : `${saldoAcerto > 0 ? "a seu favor" : "contra você"}: ${formatBRL(Math.abs(saldoAcerto))}`}
+          </strong>
+          <br /><span class="hint" style="margin:0">Isso ainda NÃO está no seu fluxo de caixa — só entra quando você registrar o acerto abaixo.</span>
+        </div>
+        ${Math.abs(saldoAcerto) > 0.004 ? `<button class="settle-link" onclick="openLoanSettle('${loan.id}')">${ICONS.hand} Registrar acerto realizado</button>` : ""}
+
+        <div class="divider"></div>
+        <button class="submit-btn" onclick="openNewLoanEntryForm('${loan.id}')">+ Registrar corrida(s)</button>
+
+        <div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;margin-top:10px">Pendente — marque as corridas pra fechar uma parcela</div>
+        ${pending.length === 0 ? `<div class="hint">Nenhuma corrida pendente. Você ainda pode fechar a parcela sem marcar nada (parcela cheia soma no saldo de acerto).</div>` : `
+          <div class="import-list">
+            ${pending.map((e) => `
+              <div class="import-row">
+                <div class="import-row-top">
+                  <label class="checkbox-row" style="flex:1">
+                    <input type="checkbox" ${ui.selectedPendingIds.includes(e.id) ? "checked" : ""} onchange="toggleSelectPendingEntry('${e.id}')" />
+                    <div>
+                      <div style="font-weight:500;font-size:13px">${esc(e.description)}</div>
+                      <div class="hint">${e.date.slice(8,10)}/${e.date.slice(5,7)}/${e.date.slice(0,4)}</div>
+                    </div>
+                  </label>
+                  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                    <span class="import-amount" style="color:#C9A227">${formatBRL(e.amount)}</span>
+                    <button class="icon-btn" onclick="openEditLoanEntryForm('${e.id}')" aria-label="Editar">${ICONS.edit}</button>
+                    <button class="icon-btn" onclick="deleteLoanEntry('${e.id}')" aria-label="Excluir">${ICONS.trash}</button>
+                  </div>
+                </div>
+              </div>`).join("")}
+          </div>`}
+
+        <div class="balance-hint" style="margin-top:10px">
+          Corridas marcadas: <strong>${formatBRL(selectedTotal)}</strong> · Parcela: <strong>${formatBRL(loan.installmentAmount)}</strong>
+          ${preview.isZero
+            ? `<br /><span style="color:#7FBE9E">Bateu certinho — só fecha a parcela, sem mudar o saldo de acerto.</span>`
+            : `<br />Vai somar ao saldo de acerto: <strong style="color:${preview.delta > 0 ? "#7FBE9E" : "#D97D80"}">${preview.delta > 0 ? "+" : ""}${formatBRL(preview.delta)} ${preview.delta > 0 ? "a seu favor" : "contra você"}</strong> (ainda não vai pro fluxo de caixa)`}
+        </div>
+        <button class="submit-btn" onclick="closeInstallment()">Fechar esta parcela</button>
+
+        <div class="divider"></div>
+        <div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10.5px">Histórico de parcelas fechadas</div>
+        ${closings.length === 0 ? `<div class="hint">Nenhuma parcela fechada ainda.</div>` : `
+          <div class="import-list">
+            ${closings.map((c) => `
+              <div class="import-row">
+                <div class="import-row-top">
+                  <div>
+                    <div style="font-weight:500;font-size:13px">Fechamento de ${c.date.slice(8,10)}/${c.date.slice(5,7)}/${c.date.slice(0,4)}</div>
+                    <div class="hint">Corridas incluídas: ${formatBRL(c.entries.reduce((s,x)=>s+x.amount,0))} (${c.entries.length})</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                    <span class="import-amount" style="color:${c.delta === 0 ? "#A8A296" : c.delta > 0 ? "#7FBE9E" : "#D97D80"}">${c.delta === 0 ? "bateu certinho" : `${c.delta > 0 ? "+" : ""}${formatBRL(c.delta)}`}</span>
+                    <button class="icon-btn" onclick="deleteLoanClosing('${c.closingId}')" aria-label="Desfazer fechamento">${ICONS.trash}</button>
+                  </div>
+                </div>
+              </div>`).join("")}
+          </div>`}
+
+        <div class="divider"></div>
+        <div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10.5px">Acertos realizados (já no fluxo de caixa)</div>
+        ${settlements.length === 0 ? `<div class="hint">Nenhum acerto registrado ainda.</div>` : `
+          <div class="import-list">
+            ${settlements.map((t) => `
+              <div class="import-row">
+                <div class="import-row-top">
+                  <div>
+                    <div style="font-weight:500;font-size:13px">${esc(t.description)}</div>
+                    <div class="hint">${t.date.slice(8,10)}/${t.date.slice(5,7)}/${t.date.slice(0,4)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                    <span class="import-amount" style="color:${t.type === "receita" ? "#7FBE9E" : "#D97D80"}">${t.type === "receita" ? "+" : "−"} ${formatBRL(t.amount)}</span>
+                    <button class="icon-btn" onclick="openEditForm('${t.id}')" aria-label="Editar">${ICONS.edit}</button>
+                    <button class="icon-btn" onclick="if(confirm('Excluir este acerto?'))deleteTransaction('${t.id}')" aria-label="Excluir">${ICONS.trash}</button>
+                  </div>
+                </div>
+              </div>`).join("")}
+          </div>`}
+      </div>
+    </div>`;
+}
+
+function renderLoanSettleFormModal() {
+  const loan = state.loans.find((l) => l.id === ui.selectedLoanId);
+  if (!loan) return "";
+  const saldoAcerto = computeLoanSaldoAcerto(loan.id);
+  const f = ui.loanSettleForm;
+  return `
+    <div class="modal-overlay" onclick="ui.loansStep='detail';render()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title">Acerto — ${esc(loan.name)}</h2>
+          <button class="icon-btn" onclick="ui.loansStep='detail';render()">${ICONS.x}</button>
+        </div>
+        <div class="balance-hint">
+          ${saldoAcerto >= 0 ? `Saldo a seu favor: ${formatBRL(saldoAcerto)}` : `Saldo contra você: ${formatBRL(Math.abs(saldoAcerto))}`}
+        </div>
+        <div class="type-toggle">
+          <button class="type-btn ${f.direction === "recebi" ? "active-receita" : ""}" onclick="ui.loanSettleForm.direction='recebi';render()">Recebi dele</button>
+          <button class="type-btn ${f.direction === "paguei" ? "active-despesa" : ""}" onclick="ui.loanSettleForm.direction='paguei';render()">Paguei a ele</button>
+        </div>
+        <div class="row2">
+          <label class="field">Valor (R$)
+            <input data-focus="loansettle-amount" value="${esc(f.amount)}" oninput="ui.loanSettleForm.amount=this.value" placeholder="0,00" inputmode="decimal" />
+          </label>
+          <label class="field">Data
+            <input type="date" value="${f.date}" onchange="ui.loanSettleForm.date=this.value" />
+          </label>
+        </div>
+        <label class="field">Observação (opcional)
+          <input data-focus="loansettle-desc" value="${esc(f.description)}" oninput="ui.loanSettleForm.description=this.value" placeholder="Ex.: Pix do acerto" />
+        </label>
+        <span class="hint">Isso cria uma ${f.direction === "recebi" ? "entrada" : "saída"} de verdade no seu fluxo de caixa.</span>
+        <button class="submit-btn" onclick="saveLoanSettle()">Registrar acerto</button>
+      </div>
+    </div>`;
+}
+
+function renderLoanEntryFormModal() {
+  const loan = state.loans.find((l) => l.id === ui.selectedLoanId);
+  if (!loan) return "";
+  const f = ui.loanEntryForm;
+  const total = f.selectedDates.reduce((s, d) => s + (parseFloat(String(f.amounts[d] || "").replace(",", ".")) || 0), 0);
+  const [cy, cm] = f.calendarMonth.split("-");
+  const grid = getCalendarGrid(f.calendarMonth);
+
+  return `
+    <div class="modal-overlay" onclick="ui.loansStep='detail';render()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title">${ui.editingLoanEntryId ? "Editar lançamento" : "Registrar corrida(s)"}</h2>
+          <button class="icon-btn" onclick="ui.loansStep='detail';render()">${ICONS.x}</button>
+        </div>
+
+        ${!ui.editingLoanEntryId ? `
+          <div>
+            <div class="cal-header">
+              <button type="button" class="cal-nav-btn" onclick="changeCalendarMonth(-1)">‹</button>
+              <span class="cal-month-label">${MONTHS_PT[parseInt(cm, 10) - 1]} ${cy}</span>
+              <button type="button" class="cal-nav-btn" onclick="changeCalendarMonth(1)">›</button>
+            </div>
+            <div class="cal-grid">
+              ${WEEKDAYS_PT.map((w) => `<div class="cal-weekday">${w}</div>`).join("")}
+              ${grid.map((dateStr) => {
+                if (!dateStr) return `<div class="cal-day cal-day-empty"></div>`;
+                const day = parseInt(dateStr.slice(8, 10), 10);
+                const selected = f.selectedDates.includes(dateStr);
+                return `<button type="button" class="cal-day ${selected ? "cal-selected" : ""}" onclick="toggleCalendarDate('${dateStr}')">${day}</button>`;
+              }).join("")}
+            </div>
+          </div>
+
+          ${f.selectedDates.length > 0 ? `
+            <div class="cal-selected-list">
+              ${f.selectedDates.map((dateStr) => `
+                <div class="cal-selected-row">
+                  <span class="cal-selected-date">${dateStr.slice(8,10)}/${dateStr.slice(5,7)}</span>
+                  <input class="cal-selected-amount" data-focus="loanentry-amount-${dateStr}" value="${esc(f.amounts[dateStr] || "")}" oninput="updateLoanEntryAmount('${dateStr}', this.value);render()" placeholder="Valor R$" inputmode="decimal" />
+                  <button type="button" class="icon-btn" style="flex:0 0 auto" onclick="toggleCalendarDate('${dateStr}')" aria-label="Remover data">${ICONS.trash}</button>
+                </div>`).join("")}
+            </div>
+            <span class="hint">Total: ${formatBRL(total)} em ${f.selectedDates.length} data(s)</span>
+          ` : `<div class="hint" style="margin-top:10px">Toque nos dias no calendário acima pra selecionar as datas das corridas.</div>`}
+        ` : `
+          <label class="field">Data
+            <input type="date" value="${f.selectedDates[0] || ""}" onchange="ui.loanEntryForm.selectedDates=[this.value]" />
+          </label>
+          <label class="field">Valor (R$)
+            <input data-focus="loanentry-amount-edit" value="${esc(f.amounts[f.selectedDates[0]] || "")}" oninput="ui.loanEntryForm.amounts[ui.loanEntryForm.selectedDates[0]]=this.value" placeholder="0,00" inputmode="decimal" />
+          </label>
+        `}
+
+        <label class="field">Observação (opcional)${!ui.editingLoanEntryId && f.selectedDates.length > 1 ? " — aplica a todas as datas acima" : ""}
+          <input data-focus="loanentry-desc" value="${esc(f.description)}" oninput="ui.loanEntryForm.description=this.value" placeholder="Ex.: Corrida de segunda e quarta" />
+        </label>
+        <span class="hint">Fica pendente até você revisar e dar o aceite — só aí vira uma entrada no seu fluxo de caixa.</span>
+
+        <button class="submit-btn" onclick="saveLoanEntry()">${ui.editingLoanEntryId ? "Salvar alterações" : "Registrar"}</button>
+      </div>
+    </div>`;
+}
+
+function renderCategoryDetailModal(monthTx, monthLabel) {
+  const cat = ui.selectedCategory;
+  const items = monthTx
+    .filter((t) => t.category === cat && t.type === "despesa" && !t.isSettlement)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  const total = items.reduce((s, t) => s + t.amount, 0);
+  return `
+    <div class="modal-overlay" onclick="closeCategoryDetail()">
+      <div class="modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title">${esc(cat)}</h2>
+          <button class="icon-btn" onclick="closeCategoryDetail()">${ICONS.x}</button>
+        </div>
+        <div class="balance-hint">${items.length} lançamento(s) em ${monthLabel} · total <strong>${formatBRL(total)}</strong></div>
+        ${items.length === 0 ? `<div class="hint">Nenhum lançamento nessa categoria neste mês.</div>` : `
+          <div class="import-list">
+            ${items.map((t) => `
+              <div class="import-row">
+                <div class="import-row-top">
+                  <div>
+                    <div style="font-weight:500;font-size:13px">${esc(t.description)}</div>
+                    <div class="hint">${t.date.slice(8,10)}/${t.date.slice(5,7)}/${t.date.slice(0,4)}${t.paymentMethod === "cartao" ? " · cartão" : ""}${t.shared ? ` · dividido (${t.paidBy === "eu" ? "você" : "esposa"} pagou, ${t.splitEu}/${100 - t.splitEu})` : ""}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                    <span class="import-amount" style="color:#D97D80">${formatBRL(t.amount)}</span>
+                    <button class="icon-btn" onclick="openEditForm('${t.id}')" aria-label="Editar">${ICONS.edit}</button>
+                    <button class="icon-btn" onclick="if(confirm('Excluir este lançamento?'))deleteTransaction('${t.id}')" aria-label="Excluir">${ICONS.trash}</button>
+                  </div>
+                </div>
+              </div>`).join("")}
+          </div>`}
+      </div>
+    </div>`;
+}
+function renderDebtDetailModal(saldoEsposa, monthTx) {
+  const items = computeDebtBreakdown(monthTx);
+  const [y, m] = ui.monthFilter.split("-");
+  const monthLabel = `${MONTHS_PT[parseInt(m, 10) - 1]} de ${y}`;
+  return `
+    <div class="modal-overlay" onclick="closeDebtDetail()">
+      <div class="modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2 class="modal-title">${saldoEsposa >= 0 ? "O que a esposa te deve" : "O que você deve à esposa"}</h2>
+          <button class="icon-btn" onclick="closeDebtDetail()">${ICONS.x}</button>
+        </div>
+        <div class="hint">Referente a ${monthLabel}</div>
+        <div class="balance-hint">
+          Saldo do mês: <strong>${formatBRL(Math.abs(saldoEsposa))}</strong>
+          ${saldoEsposa >= 0 ? "a favor de você" : "a favor da esposa"}
+        </div>
+        ${items.length === 0 ? `<div class="hint">Nenhuma conta dividida ou acerto registrado em ${monthLabel}.</div>` : `
+          <div class="import-list">
+            ${items.map((it) => {
+              const t = it.tx;
+              const isSettlement = it.kind === "settlement";
+              const favorFor = it.contribution >= 0 ? "você" : "esposa";
+              return `
+                <div class="import-row">
+                  <div class="import-row-top">
+                    <div>
+                      <div style="font-weight:500;font-size:13px">${esc(t.description)}</div>
+                      <div class="hint">${t.date.slice(8,10)}/${t.date.slice(5,7)}/${t.date.slice(0,4)}${!isSettlement ? ` · valor total ${formatBRL(t.amount)} · ${t.paidBy === "eu" ? "você pagou" : "esposa pagou"} · ${t.splitEu}/${100 - t.splitEu}` : " · acerto"}</div>
+                    </div>
+                    <span class="import-amount" style="color:${it.contribution >= 0 ? "#7FBE9E" : "#D97D80"}">
+                      ${it.contribution >= 0 ? "+" : "−"} ${formatBRL(Math.abs(it.contribution))}
+                    </span>
+                  </div>
+                  <div class="hint">a favor de ${favorFor}</div>
+                </div>`;
+            }).join("")}
+          </div>`}
+        <button class="submit-btn" onclick="closeDebtDetail();openSettle()">Registrar acerto</button>
+      </div>
+    </div>`;
+}
+function renderSettleModal(saldoEsposa) {
+  const s = ui.settle;
+  return `
+    <div class="modal-overlay" onclick="ui.modal=null;ui.editingSettleId=null;render()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2 class="modal-title">${ui.editingSettleId ? "Editar acerto" : "Acerto com a esposa"}</h2><button class="icon-btn" onclick="ui.modal=null;ui.editingSettleId=null;render()">${ICONS.x}</button></div>
+        ${!ui.editingSettleId ? `<div class="balance-hint">${saldoEsposa >= 0 ? `Sua esposa te deve ${formatBRL(saldoEsposa)}` : `Você deve ${formatBRL(Math.abs(saldoEsposa))} à sua esposa`}</div>` : ""}
+        <div class="type-toggle">
+          <button class="type-btn ${s.direction === "paguei" ? "active-despesa" : ""}" onclick="ui.settle.direction='paguei';render()">Eu paguei a ela</button>
+          <button class="type-btn ${s.direction === "recebi" ? "active-receita" : ""}" onclick="ui.settle.direction='recebi';render()">Ela me pagou</button>
+        </div>
+        <div class="row2">
+          <label class="field">Valor (R$)<input data-focus="settle-amount" value="${esc(s.amount)}" oninput="ui.settle.amount=this.value" placeholder="${Math.abs(saldoEsposa).toFixed(2).replace(".", ",")}" inputmode="decimal" /></label>
+          <label class="field">Data<input type="date" value="${s.date}" onchange="ui.settle.date=this.value" /></label>
+        </div>
+        <label class="field">Observação (opcional)<input data-focus="settle-description" value="${esc(s.description)}" oninput="ui.settle.description=this.value" placeholder="Ex.: Pix do acerto do mês" /></label>
+        <button class="submit-btn" onclick="addSettlement()">${ui.editingSettleId ? "Salvar alterações" : "Registrar acerto"}</button>
+      </div>
+    </div>`;
+}
+
+function renderSettingsModal() {
+  if (!ui.settingsForm) {
+    ui.settingsForm = {
+      closingDayInput: state.settings.closingDay ? String(state.settings.closingDay) : "",
+      marginDaysInput: String(state.settings.marginDays ?? 5),
+      dueDayInput: state.settings.dueDay ? String(state.settings.dueDay) : "",
+      meuNomeInput: state.settings.meuNome || "",
+      esposaNomeInput: state.settings.esposaNome || "",
+    };
+  }
+  const sf = ui.settingsForm;
+  return `
+    <div class="modal-overlay" onclick="ui.modal=null;ui.settingsForm=null;render()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2 class="modal-title">Configurações</h2><button class="icon-btn" onclick="ui.modal=null;ui.settingsForm=null;render()">${ICONS.x}</button></div>
+
+        <label class="field">Dia de fechamento da fatura do cartão
+          <input data-focus="settings-closingday" type="number" min="1" max="31" value="${sf.closingDayInput}" oninput="ui.settingsForm.closingDayInput=this.value;render()" placeholder="Ex.: 20" />
+          <span class="hint">Compras feitas depois desse dia entram na fatura do mês seguinte. Deixe em branco para lançar sempre no mês da compra.</span>
+        </label>
+
+        ${sf.closingDayInput ? `
+          <label class="field">Margem de segurança antes do fechamento (dias)
+            <input data-focus="settings-margindays" type="number" min="0" max="15" value="${sf.marginDaysInput}" oninput="ui.settingsForm.marginDaysInput=this.value" placeholder="Ex.: 5" />
+            <span class="hint">Compras feitas dentro desses últimos dias antes do fechamento também vão para a fatura do mês seguinte.</span>
+          </label>` : ""}
+
+        <label class="field">Dia de vencimento da fatura
+          <input data-focus="settings-dueday" type="number" min="1" max="31" value="${sf.dueDayInput}" oninput="ui.settingsForm.dueDayInput=this.value" placeholder="Ex.: 5" />
+          <span class="hint">Mostra um aviso no app quando faltarem 5 dias ou menos pro vencimento. É um lembrete visual só — pra notificação de verdade (mesmo com o app fechado) seria preciso outra estrutura, me avise se quiser isso.</span>
+        </label>
+
+        <div class="divider"></div>
+        <div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10.5px">Importação automática de fatura</div>
+        <label class="field">Seu nome como aparece na fatura
+          <input data-focus="settings-meunome" value="${esc(sf.meuNomeInput)}" oninput="ui.settingsForm.meuNomeInput=this.value" placeholder="Ex.: LEONARDO C SANTOS" />
+        </label>
+        <label class="field">Nome da esposa como aparece na fatura
+          <input data-focus="settings-esposanome" value="${esc(sf.esposaNomeInput)}" oninput="ui.settingsForm.esposaNomeInput=this.value" placeholder="Ex.: SAMILLE FERREIRA" />
+          <span class="hint">Usado para separar automaticamente os gastos de cada titular ao importar a fatura.</span>
+        </label>
+
+        <button class="submit-btn" onclick="saveSettings()">Salvar</button>
+
+        <div class="divider"></div>
+        <div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10.5px">Categorias personalizadas</div>
+        <div class="type-toggle">
+          <button class="type-btn ${ui.newCategoryType === "despesa" ? "active-despesa" : ""}" onclick="ui.newCategoryType='despesa';render()">Despesas</button>
+          <button class="type-btn ${ui.newCategoryType === "receita" ? "active-receita" : ""}" onclick="ui.newCategoryType='receita';render()">Receitas</button>
+        </div>
+        <div class="row2">
+          <input data-focus="new-category" style="flex:1" value="${esc(ui.newCategoryInput)}" oninput="ui.newCategoryInput=this.value" placeholder="Ex.: Pet, Educação..." />
+          <button class="backup-btn" style="flex:0 0 auto;padding:11px 16px" onclick="addCustomCategory()">Adicionar</button>
+        </div>
+        <div class="badge-row">
+          ${categoriesFor(ui.newCategoryType).map((c) => {
+            const isCustom = (ui.newCategoryType === "receita" ? state.settings.customCategoriesReceita : state.settings.customCategoriesDespesa || []).includes(c);
+            return `<span class="badge" style="font-size:11.5px;padding:4px 8px">${esc(c)}${isCustom ? ` <button class="icon-btn" style="padding:0;margin-left:2px" onclick="removeCustomCategory('${ui.newCategoryType}','${escJs(c)}')">${ICONS.xSmall}</button>` : ""}</span>`;
+          }).join("")}
+        </div>
+
+        <div class="divider"></div>
+        <div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10.5px">Orçamento mensal por categoria</div>
+        <span class="hint">Deixe em branco pra categorias sem teto definido. O app avisa quando algum limite for ultrapassado no mês.</span>
+        ${categoriesFor("despesa").map((c) => `
+          <label class="field" style="flex-direction:row;align-items:center;justify-content:space-between;gap:10px">
+            <span style="color:#F5F1E6;font-size:13px">${esc(c)}</span>
+            <input type="number" min="0" step="0.01" style="width:110px" value="${(state.settings.budgets || {})[c] || ""}" onchange="saveBudget('${escJs(c)}', this.value)" placeholder="Sem teto" />
+          </label>
+        `).join("")}
+
+        <div class="divider"></div>
+        <div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10.5px">Backup dos dados (salvos neste aparelho)</div>
+        <div class="backup-row">
+          <button class="backup-btn" onclick="exportBackup()">Exportar backup</button>
+          <label class="backup-btn" style="cursor:pointer">
+            Importar backup
+            <input type="file" accept=".json" style="display:none" onchange="importBackupFile(event)" />
+          </label>
+        </div>
+        <button class="backup-btn" onclick="exportCsv()">Exportar tudo em CSV (Excel)</button>
+      </div>
+    </div>`;
+}
+
+function renderImportTotalCheck() {
+  if (ui.importDetectedTotal == null) return "";
+  const included = ui.importRows.filter((r) => r.include);
+  const sum = included.reduce((s, r) => s + r.amount, 0);
+  const diff = Math.abs(sum - ui.importDetectedTotal);
+  const ok = diff < 0.05;
+  return `
+    <div class="${ok ? "match-box" : "mismatch-box"}">
+      ${ok
+        ? `${ICONS.check}Bate com o total da fatura: ${formatBRL(ui.importDetectedTotal)}`
+        : `⚠️ Total dos itens marcados (${formatBRL(sum)}) não bate com o total da fatura (${formatBRL(ui.importDetectedTotal)}) — diferença de ${formatBRL(diff)}. Confira se algum item ficou de fora ou duplicado.`}
+    </div>`;
+}
+function renderImportModal() {
+  if (ui.importStep === "input") {
+    return `
+      <div class="modal-overlay" onclick="closeImport()">
+        <div class="modal-large" onclick="event.stopPropagation()">
+          <div class="modal-header"><h2 class="modal-title">Importar fatura</h2><button class="icon-btn" onclick="closeImport()">${ICONS.x}</button></div>
+          <label class="field">Mês de referência desta fatura
+            <input type="month" value="${ui.importReferenceMonth}" onchange="ui.importReferenceMonth=this.value" />
+          </label>
+          <label class="field">Categoria padrão dos itens importados
+            <select onchange="ui.importCategory=this.value">
+              ${categoriesFor("despesa").map((c) => `<option value="${c}" ${ui.importCategory === c ? "selected" : ""}>${c}</option>`).join("")}
+            </select>
+          </label>
+
+          <div class="row2">
+            <label class="field">Seu nome na fatura
+              <input data-focus="import-meunome" value="${esc(ui.importMeuNome)}" oninput="ui.importMeuNome=this.value" placeholder="Ex.: LEONARDO C SANTOS" />
+            </label>
+            <label class="field">Nome da esposa na fatura
+              <input data-focus="import-esposanome" value="${esc(ui.importEsposaNome)}" oninput="ui.importEsposaNome=this.value" placeholder="Ex.: SAMILLE FERREIRA" />
+            </label>
+          </div>
+          <span class="hint">Se a fatura tiver seções por titular (ex.: cartão adicional), uso isso pra já pré-marcar "Só eu" / "Só esposa" — mas você pode trocar qualquer item na revisão.</span>
+
+          <label class="field">Enviar arquivo (PDF da fatura, CSV ou TXT)
+            <input type="file" accept=".pdf,.csv,.txt" onchange="handleImportFile(event)" />
+            ${ui.importLoading ? `<span class="hint">Lendo o PDF, aguarde um instante...</span>` : ""}
+          </label>
+          <label class="field">Cole aqui o texto copiado da fatura (funciona com faturas detalhadas por titular, ou simples "data, descrição, valor")
+            <textarea data-focus="import-rawtext" style="min-height:160px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;resize:vertical" oninput="ui.importRawText=this.value" placeholder="15/03/2026, Supermercado ABC, 234,50
+16/03/2026, Posto Shell, 120,00">${esc(ui.importRawText)}</textarea>
+          </label>
+          ${ui.importError ? `<div class="error-text">${esc(ui.importError)}</div>` : ""}
+          <button class="submit-btn" ${(!ui.importRawText.trim() || ui.importLoading) ? "disabled" : ""} style="opacity:${(ui.importRawText.trim() && !ui.importLoading) ? 1 : 0.5}" onclick="analyzeImport()">${ui.importLoading ? "Lendo PDF..." : "Analisar lançamentos"}</button>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="modal-overlay" onclick="closeImport()">
+      <div class="modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2 class="modal-title">Importar fatura</h2><button class="icon-btn" onclick="closeImport()">${ICONS.x}</button></div>
+        <div class="hint">Encontrei ${ui.importRows.length} lançamento(s). Confira a classificação de cada um — pré-marquei por titular quando reconheci as seções da fatura.</div>
+        ${renderImportTotalCheck()}
+        <div class="import-list">
+          ${ui.importRows.map((r) => `
+            <div class="import-row">
+              <div class="import-row-top">
+                <input type="checkbox" ${r.include ? "checked" : ""} onchange="updateImportRow('${r.id}',{include:this.checked});render()" style="flex:0 0 auto" />
+                <input
+                  data-focus="import-desc-${r.id}"
+                  class="import-desc-input"
+                  value="${esc(r.description)}"
+                  oninput="updateImportRow('${r.id}',{description:this.value})"
+                  placeholder="Descrição"
+                />
+                <span class="import-amount">${formatBRL(r.amount)}</span>
+              </div>
+              ${r.holder ? `<div class="hint" style="margin-left:2px">titular na fatura: ${esc(r.holder)}</div>` : ""}
+              ${r.include ? `
+                <div class="classify-row">
+                  ${[["so_eu","Só eu"],["dividido","Dividido"],["so_esposa","Só esposa"]].map(([key,label]) => `
+                    <button class="classify-btn ${r.classification === key ? "active" : ""}" onclick="updateImportRow('${r.id}',{classification:'${key}'});render()">${label}</button>
+                  `).join("")}
+                  ${r.classification === "dividido" ? `<input class="split-input" data-focus="import-split-${r.id}" type="number" min="0" max="100" value="${r.splitEu}" oninput="updateImportRow('${r.id}',{splitEu:this.value})" />` : ""}
+                </div>` : ""}
+            </div>`).join("")}
+        </div>
+        <div class="import-footer">
+          <button class="back-btn" onclick="ui.importStep='input';render()">Voltar</button>
+          <button class="submit-btn" onclick="confirmImport()">${ICONS.check}Importar ${ui.importRows.filter((r) => r.include).length} item(ns)</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- Handlers auxiliares ---------- */
+function openForm() { ui.form = freshForm(); ui.editingId = null; ui.modal = "form"; render(); }
+function openEditForm(id) {
+  const t = state.transactions.find((tx) => tx.id === id);
+  if (!t) return;
+  ui.form = {
+    date: t.date,
+    description: t.description,
+    category: t.category,
+    type: t.type,
+    amount: String(t.amount).replace(".", ","),
+    paymentMethod: t.paymentMethod || "dinheiro",
+    installments: "1",
+    shared: !!t.shared,
+    paidBy: t.paidBy || "eu",
+    splitEu: t.splitEu != null ? String(t.splitEu) : "50",
+  };
+  ui.editingId = id;
+  ui.modal = "form";
+  render();
+}
+function setFormType(type) {
+  ui.form.type = type;
+  ui.form.category = type === "receita" ? CATEGORIES_RECEITA[0] : CATEGORIES_DESPESA[0];
+  ui.form.paymentMethod = "dinheiro"; ui.form.installments = "1"; ui.form.shared = false;
+  render();
+}
+function openSettle() { ui.settle = freshSettle(); ui.editingSettleId = null; ui.modal = "settle"; render(); }
+function openEditSettle(id) {
+  const t = state.transactions.find((tx) => tx.id === id);
+  if (!t) return;
+  ui.settle = {
+    date: t.date,
+    description: t.description,
+    amount: String(t.amount).replace(".", ","),
+    direction: t.settlementDirection || "paguei",
+  };
+  ui.editingSettleId = id;
+  ui.modal = "settle";
+  render();
+}
+function openDebtDetail() { ui.modal = "debtDetail"; render(); }
+function closeDebtDetail() { ui.modal = null; render(); }
+function openCategoryDetail(category) { ui.selectedCategory = category; ui.modal = "categoryDetail"; render(); }
+function closeCategoryDetail() { ui.modal = null; ui.selectedCategory = null; render(); }
+function openSettings() { ui.settingsForm = null; ui.modal = "settings"; render(); }
+function openImport() {
+  ui.importStep = "input"; ui.importRawText = ""; ui.importRows = []; ui.importError = ""; ui.importLoading = false;
+  ui.importDetectedTotal = null;
+  ui.importMeuNome = state.settings.meuNome || "";
+  ui.importEsposaNome = state.settings.esposaNome || "";
+  ui.modal = "import"; render();
+}
+function closeImport() { ui.modal = null; render(); }
+function updateImportRow(id, patch) {
+  ui.importRows = ui.importRows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+}
+function handleImportFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  ui.importError = "";
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  if (isPdf) {
+    if (!window.pdfjsLib) {
+      ui.importError = "A leitura de PDF não carregou (verifique sua internet e tente novamente). Você ainda pode colar o texto copiado do PDF no campo abaixo.";
+      render();
+      return;
+    }
+    ui.importLoading = true;
+    render();
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const text = await extractTextFromPdf(ev.target.result);
+        ui.importRawText = text;
+      } catch (err) {
+        console.error(err);
+        ui.importError = "Não consegui ler esse PDF automaticamente. Tente abrir o arquivo, selecionar/copiar o texto e colar no campo abaixo.";
+      }
+      ui.importLoading = false;
+      render();
+    };
+    reader.onerror = () => {
+      ui.importError = "Não consegui ler esse arquivo.";
+      ui.importLoading = false;
+      render();
+    };
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => { ui.importRawText = ev.target.result || ""; render(); };
+  reader.onerror = () => { ui.importError = "Não consegui ler esse arquivo."; render(); };
+  reader.readAsText(file, "utf-8");
+}
+
+/* ---------- Início ---------- */
+/* O primeiro render() é disparado por auth.onAuthStateChanged, lá em cima. */
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  });
+  // Quando uma versão nova do app assume, recarrega a página uma vez sozinho —
+  // assim ninguém fica preso vendo uma versão antiga em cache.
+  let reloadedOnce = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadedOnce) return;
+    reloadedOnce = true;
+    window.location.reload();
+  });
+}
+</script>
+</body>
+</html>
